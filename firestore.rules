@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Product validation
+    function isValidProduct(data) {
+      return data.keys().hasAll(['name', 'price', 'priceNum', 'image', 'category', 'material', 'createdAt', 'updatedAt', 'description', 'highlights'])
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && data.price is string && data.price.size() <= 100
+        && data.priceNum is number && data.priceNum >= 0
+        && data.image is string && data.image.size() <= 1000
+        && (data.get('images', []) is list)
+        && data.category is string && data.category.size() <= 200
+        && data.material is string && data.material.size() <= 200
+        && data.description is string && data.description.size() <= 5000
+        && data.highlights is list && data.highlights.size() <= 50
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Match products
+    match /products/{productId} {
+      allow get, list: if true; // Publicly readable
+      
+      allow create: if isAdmin() 
+        && isValidId(productId)
+        && isValidProduct(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && isValidProduct(incoming())
+        && incoming().updatedAt == request.time
+        && incoming().createdAt == existing().createdAt; // Immutable createdAt
+
+      allow delete: if isAdmin();
+    }
+
+    // Match admins (Only admins can read/write admin list, bootstrap needed in console)
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && adminId == request.auth.uid;
+      allow read, write: if false; // Only manageable via Firebase Console for security
+    }
+
+    // Metadata management
+    match /categories/{categoryId} {
+      allow get, list: if true;
+      allow create, update: if isAdmin() && incoming().keys().hasAll(['name']) && incoming().name is string;
+      allow delete: if isAdmin();
+    }
+
+    match /materials/{materialId} {
+      allow get, list: if true;
+      allow create, update: if isAdmin() && incoming().keys().hasAll(['name', 'value']) && incoming().name is string && incoming().value is string;
+      allow delete: if isAdmin();
+    }
+
+    match /inquiries/{inquiryId} {
+      allow create: if incoming().keys().hasAll(['name', 'email', 'message', 'subject', 'createdAt']) 
+        && incoming().name is string && incoming().name.size() > 0 && incoming().name.size() <= 200
+        && incoming().email is string && incoming().email.size() > 0 && incoming().email.size() <= 200
+        && incoming().message is string && incoming().message.size() > 0 && incoming().message.size() <= 2000
+        && incoming().subject is string
+        && incoming().createdAt == request.time;
+      allow get, list: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}

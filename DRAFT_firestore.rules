@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Product validation
+    function isValidProduct(data) {
+      return data.keys().hasAll(['name', 'price', 'priceNum', 'image', 'category', 'material', 'createdAt', 'updatedAt'])
+        && data.keys().size() == 8
+        && data.name is string && data.name.size() >= 3 && data.name.size() <= 100
+        && data.price is string && data.price.size() <= 50
+        && data.priceNum is number && data.priceNum >= 0
+        && data.image is string && data.image.size() <= 1000
+        && data.category is string && data.category.size() <= 50
+        && data.material is string && data.material.size() <= 50
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // Match products
+    match /products/{productId} {
+      allow get, list: if true; // Publicly readable
+      
+      allow create: if isAdmin() 
+        && isValidId(productId)
+        && isValidProduct(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && isValidProduct(incoming())
+        && incoming().updatedAt == request.time
+        && incoming().createdAt == existing().createdAt; // Immutable createdAt
+
+      allow delete: if isAdmin();
+    }
+
+    // Match admins (Only admins can read/write admin list, bootstrap needed in console)
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && adminId == request.auth.uid;
+      allow read, write: if false; // Only manageable via Firebase Console for security
+    }
+  }
+}

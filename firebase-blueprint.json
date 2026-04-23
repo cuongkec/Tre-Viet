@@ -1,0 +1,84 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A product sold by Tre Việt",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Auto-generated ID" },
+        "name": { "type": "string", "description": "Product name" },
+        "price": { "type": "string", "description": "Price as formatted string (e.g. 3.200.000đ)" },
+        "priceNum": { "type": "number", "description": "Price as number for filtering" },
+        "image": { "type": "string", "description": "URL to product image" },
+        "category": { "type": "string", "description": "Product category" },
+        "material": { "type": "string", "description": "Product material type" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "priceNum", "image", "category", "material"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "System administrator",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "uid": { "type": "string" }
+      }
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Product category",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Material": {
+      "title": "Material",
+      "description": "Product material or craftsmanship type",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "value": { "type": "string" }
+      },
+      "required": ["name", "value"]
+    },
+    "Inquiry": {
+      "title": "Inquiry",
+      "description": "Customer contact form submission",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "message"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Public list of products"
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "List of authorized administrators"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Manageable product categories"
+    },
+    "/materials/{materialId}": {
+      "schema": "Material",
+      "description": "Manageable material types"
+    },
+    "/inquiries/{inquiryId}": {
+      "schema": "Inquiry",
+      "description": "Customer inquiries"
+    }
+  }
+}
