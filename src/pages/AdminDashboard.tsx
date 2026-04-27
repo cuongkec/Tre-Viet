@@ -247,17 +247,29 @@ export default function AdminDashboard() {
       if (selectedFiles.length > 0) {
         try {
           const uploadPromises = selectedFiles.map(async (file) => {
-            // Priority: Cloudinary if configured
-            const cloudinaryUrl = await uploadToCloudinary(file);
-            if (cloudinaryUrl) return cloudinaryUrl;
+            // Using a standard unsplash/default approach for demo or forcing Cloudinary
+            const cloudName = (import.meta as any).env.VITE_CLOUDINARY_CLOUD_NAME || "dijr976sd"; 
+            const uploadPreset = (import.meta as any).env.VITE_CLOUDINARY_UPLOAD_PRESET || "treviet_unsigned";
+            
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('upload_preset', uploadPreset);
 
-            // Fallback: Firebase Storage
-            const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${safeName}`;
-            const fileRef = ref(storage, `products/${fileName}`);
-            const metadata = { contentType: file.type };
-            const uploadResult = await uploadBytes(fileRef, file, metadata);
-            return await getDownloadURL(uploadResult.ref);
+            const response = await fetch(
+              `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+              {
+                method: 'POST',
+                body: fd,
+              }
+            );
+
+            if (!response.ok) {
+              const error = await response.json();
+              throw new Error(error.error?.message || "Cloudinary upload failed");
+            }
+
+            const data = await response.json();
+            return data.secure_url;
           });
           
           const uploadedUrls = await Promise.all(uploadPromises);
@@ -268,17 +280,8 @@ export default function AdminDashboard() {
           
           gallery = [...gallery, ...uploadedUrls];
         } catch (uploadError: any) {
-          console.error("Storage upload error:", uploadError);
-          let errorMsg = "Lỗi khi tải ảnh lên hệ thống.";
-          
-          if (uploadError.message?.includes("Cloudinary configuration missing")) {
-              errorMsg = "Lỗi: Cloudinary chưa được cấu hình. Vui lòng kiểm tra Firebase Storage quota hoặc cấu hình Cloudinary.";
-          } else if (uploadError.code === 'storage/unauthorized') {
-            errorMsg = "Lỗi: Không có quyền truy cập bộ nhớ Firebase. Vui lòng kiểm tra cấu hình Firebase Storage.";
-          } else if (uploadError.code === 'storage/quota-exceeded' || uploadError.message?.includes("quota")) {
-            errorMsg = "Lỗi: Đã hết hạn mức dung lượng miễn phí. Vui lòng sử dụng Cloudinary (khuyên dùng) hoặc nâng cấp gói Firebase.";
-          }
-          throw new Error(errorMsg);
+          console.error("Upload error:", uploadError);
+          throw new Error("Tải ảnh thất bại. Dịch vụ lưu trữ chưa được cấu hình đúng: " + uploadError.message);
         }
       }
 
@@ -433,12 +436,24 @@ export default function AdminDashboard() {
                 </button>
               </div>
             ) : (
-              <button 
-                onClick={loginWithGoogle}
-                className="flex items-center gap-4 mx-auto px-10 py-5 bg-editorial-text text-white hover:bg-editorial-accent transition-all duration-500 uppercase text-[12px] tracking-[4px] font-bold"
-              >
-                <LogIn size={18} /> Đăng nhập bằng Google
-              </button>
+              <div className="flex flex-col items-center">
+                {status?.type === 'error' && (
+                  <div className="mb-4 text-red-500 font-bold border border-red-200 bg-red-50 p-4 w-full max-w-md">
+                    LỖI ĐĂNG NHẬP: {status.msg}
+                  </div>
+                )}
+                <button 
+                  onClick={() => {
+                    loginWithGoogle().catch(err => {
+                      console.error("Login popup error:", err);
+                      setStatus({ type: 'error', msg: err?.message || "Popup bị trình duyệt đóng ngang hoặc lỗi mạng." });
+                    });
+                  }}
+                  className="flex items-center gap-4 mx-auto px-10 py-5 bg-editorial-text text-white hover:bg-editorial-accent transition-all duration-500 uppercase text-[12px] tracking-[4px] font-bold"
+                >
+                  <LogIn size={18} /> Đăng nhập bằng Google
+                </button>
+              </div>
             )}
             
             {/* Note about bootstrapping */}
@@ -448,10 +463,10 @@ export default function AdminDashboard() {
               </h3>
               <ol className="text-xs space-y-2 opacity-60 list-decimal pl-4">
                 <li>Truy cập Firebase Console {">"} Firestore Database.</li>
-                <li><strong>QUAN TRỌNG:</strong> Chọn Database ID là <code className="bg-editorial-muted/20 px-1">ai-studio-e79067d6-90a8-46cb-8e51-927239a1f300</code> thay vì <code>(default)</code>.</li>
                 <li>Tạo collection có tên là <code>admins</code>.</li>
-                <li>Thêm một document với ID là <strong>UID</strong> tài khoản của bạn.</li>
-                <li>UID của bạn hiện tại: <code className="bg-editorial-muted/20 px-1">{user?.uid || "(Đăng nhập để xem UID)"}</code></li>
+                <li>Thêm một document với <strong>Document ID</strong> chính là <strong>UID</strong> tài khoản của bạn.</li>
+                <li>UID của bạn hiện tại: <code className="bg-editorial-muted/20 px-1 text-editorial-accent font-bold">{user?.uid || "(Đăng nhập để xem UID)"}</code></li>
+                <li>F5 tải lại trang sau khi cấu hình xong.</li>
               </ol>
             </div>
           </div>
