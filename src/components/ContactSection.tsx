@@ -43,12 +43,17 @@ export default function ContactSection() {
   };
 
   return (
-    <section id="contact" className="py-40 px-[60px] bg-editorial-bg border-t border-editorial-line/10">
+    <section id="contact" className="py-40 px-6 md:px-[60px] bg-editorial-bg border-t border-editorial-line/10">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-24 items-start">
           
-          <div>
-            <span className="text-editorial-accent text-[12px] uppercase tracking-[2px] font-semibold mb-6 block">Get in Touch</span>
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <span className="text-editorial-accent text-[12px] uppercase tracking-[2px] font-semibold mb-6 block animate-pulse">Get in Touch</span>
             <h2 className="text-5xl md:text-7xl font-serif leading-[0.9] mb-12">
               Bắt Đầu Một <br />
               <span className="italic-serif text-editorial-accent">Dự Án Mới.</span>
@@ -64,7 +69,7 @@ export default function ContactSection() {
                 </div>
                 <div>
                   <h4 className="text-[10px] uppercase tracking-widest font-bold opacity-40 mb-2">Showroom Hà Nội</h4>
-                  <p className="text-sm">24 Lý Quốc Sư, Hoàn Kiếm, Hà Nội</p>
+                  <p className="text-sm">Số TT37 Khu đô thị Văn Phú, Phường Kiến Hưng, Hà Nội</p>
                 </div>
               </div>
 
@@ -74,7 +79,7 @@ export default function ContactSection() {
                 </div>
                 <div>
                   <h4 className="text-[10px] uppercase tracking-widest font-bold opacity-40 mb-2">Điện thoại</h4>
-                  <p className="text-sm">+84 (0) 24 3828 2212</p>
+                  <p className="text-sm">0914 371 531</p>
                 </div>
               </div>
 
@@ -84,17 +89,17 @@ export default function ContactSection() {
                 </div>
                 <div>
                   <h4 className="text-[10px] uppercase tracking-widest font-bold opacity-40 mb-2">Email</h4>
-                  <p className="text-sm">contact@treviet.vn</p>
+                  <p className="text-sm">trevua.vn@gmail.com</p>
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 1 }}
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ delay: 0.15, duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
             className="bg-white p-12 shadow-[0_30px_60px_rgba(0,0,0,0.03)] border border-editorial-line/10 relative"
           >
             {/* Corner Accent */}
@@ -114,7 +119,7 @@ export default function ContactSection() {
                   </div>
                   <h3 className="text-2xl font-serif mb-4">Gửi thành công</h3>
                   <p className="text-xs opacity-60 leading-relaxed uppercase tracking-widest">
-                    Cảm ơn bạn đã liên hệ. Đội ngũ Tre Việt sẽ phản hồi sớm nhất có thể.
+                    Cảm ơn bạn đã liên hệ. Đội ngũ KC Cook sẽ phản hồi sớm nhất có thể.
                   </p>
                 </motion.div>
               ) : (

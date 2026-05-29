@@ -12,6 +12,7 @@ interface Product {
   category: string;
   material: string;
   description?: string;
+  images?: string[];
 }
 
 interface QuickViewModalProps {
@@ -24,11 +25,13 @@ interface QuickViewModalProps {
 export default function QuickViewModal({ product, isOpen, onClose, onViewDetail }: QuickViewModalProps) {
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   // Reset quantity when modal opens or product changes
   useEffect(() => {
     if (isOpen) {
       setQuantity(1);
+      setActiveImageIndex(0);
     }
   }, [isOpen, product]);
 
@@ -74,13 +77,34 @@ export default function QuickViewModal({ product, isOpen, onClose, onViewDetail 
             </button>
 
             {/* Left: Product Image */}
-            <div className="md:w-1/2 aspect-[4/5] md:aspect-auto overflow-hidden bg-editorial-muted/10">
-              <img
-                src={product.image}
-                alt={product.name}
-                className="w-full h-full object-cover grayscale-[20%] brightness-95"
-                referrerPolicy="no-referrer"
-              />
+            <div className="md:w-1/2 aspect-[4/5] md:aspect-auto overflow-hidden bg-editorial-muted/10 relative group">
+              <AnimatePresence mode="wait">
+                <motion.img
+                  key={product.images ? product.images[activeImageIndex] : product.image}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  src={product.images ? product.images[activeImageIndex] : product.image}
+                  alt={product.name}
+                  className="w-full h-full object-cover grayscale-[20%] brightness-95"
+                  referrerPolicy="no-referrer"
+                />
+              </AnimatePresence>
+              
+              {product.images && product.images.length > 1 && (
+                <div className="absolute bottom-4 left-0 w-full flex justify-center gap-2">
+                  {product.images.map((_: any, idx: number) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveImageIndex(idx)}
+                      className={`w-2 h-2 rounded-full transition-all ${
+                        idx === activeImageIndex ? 'bg-editorial-accent w-4' : 'bg-black/20 hover:bg-black/50'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Right: Product Details */}

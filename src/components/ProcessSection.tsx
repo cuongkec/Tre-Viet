@@ -25,19 +25,26 @@ const steps = [
 
 export default function ProcessSection() {
   return (
-    <section id="process" className="py-32 px-[60px] bg-editorial-bg border-t border-editorial-line/10">
+    <section id="process" className="py-32 px-6 md:px-[60px] bg-editorial-bg border-t border-editorial-line/10">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
           
           <div className="lg:col-span-4 sticky top-40">
-            <span className="text-editorial-accent text-[12px] uppercase tracking-[2px] font-semibold mb-6 block">Our Craft</span>
-            <h2 className="text-4xl md:text-5xl font-serif leading-[1.1] mb-8">
-              Sự Kiên Nhẫn <br />
-              <span className="italic-serif text-editorial-accent">Trong Từng Bước Chân.</span>
-            </h2>
-            <p className="text-[#666] leading-[1.6] font-light text-[16px] max-w-sm">
-              Để tạo ra một sản phẩm nội thất tre cao cấp, chúng tôi không cho phép mình vội vã. Đó là sự kết hợp giữa thời gian, thiên nhiên và lòng kiên nhẫn.
-            </p>
+            <motion.div
+              initial={{ opacity: 0, y: 35 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <span className="text-editorial-accent text-[12px] uppercase tracking-[2px] font-semibold mb-6 block animate-pulse">Our Craft</span>
+              <h2 className="text-4xl md:text-5xl font-serif leading-[1.1] mb-8">
+                Sự Kiên Nhẫn <br />
+                <span className="italic-serif text-editorial-accent">Trong Từng Bước Chân.</span>
+              </h2>
+              <p className="text-[#666] leading-[1.6] font-light text-[16px] max-w-sm">
+                Để tạo ra một sản phẩm nội thất tre cao cấp, chúng tôi không cho phép mình vội vã. Đó là sự kết hợp giữa thời gian, thiên nhiên và lòng kiên nhẫn.
+              </p>
+            </motion.div>
           </div>
 
           <div className="lg:col-span-8">
@@ -68,28 +75,26 @@ export default function ProcessSection() {
         </div>
       </div>
 
-      {/* Process Ambient Image */}
-      <div className="mt-40 w-full h-[600px] relative overflow-hidden">
-        <img 
-          src="https://images.unsplash.com/photo-1596701062351-8c2c14d1fdd0?q=80&w=1974&auto=format&fit=crop"
-          alt="Artisan hands"
-          className="w-full h-full object-cover scale-110 grayscale brightness-75 transition-all duration-[3s] hover:scale-100"
-          referrerPolicy="no-referrer"
-        />
-        <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center text-white">
-                <span className="text-[10px] uppercase tracking-[0.5em] block mb-4">The Making of Heritage</span>
-                <button className="w-20 h-20 rounded-full border border-white/30 flex items-center justify-center hover:bg-white hover:text-editorial-text transition-all group overflow-hidden relative">
-                    <span className="text-[10px] uppercase tracking-widest font-bold z-10 transition-colors group-hover:text-black">Play</span>
-                    <motion.div 
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="absolute inset-0 bg-white/10" 
-                    />
-                </button>
-            </div>
-        </div>
-      </div>
+      {/* Process Ambient Video */}
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.96, y: 50 }}
+        whileInView={{ opacity: 1, scale: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+        className="mt-40 w-full h-[600px] md:h-[700px] relative overflow-hidden group rounded-[4px] border border-editorial-line/10"
+      >
+        <video 
+          src="https://res.cloudinary.com/dqashtrhn/video/upload/v1779901508/video_u1bfgu.mp4"
+          autoPlay 
+          muted 
+          loop 
+          playsInline
+          className="w-full h-full object-cover scale-105 transition-transform duration-[3s] group-hover:scale-100"
+        >
+          Trình duyệt của bạn không hỗ trợ thẻ video.
+        </video>
+        <div className="absolute inset-0 bg-black/25 transition-colors duration-700 pointer-events-none" />
+      </motion.div>
     </section>
   );
 }

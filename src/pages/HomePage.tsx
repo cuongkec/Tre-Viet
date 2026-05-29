@@ -20,7 +20,7 @@ export default function HomePage() {
       <ContactSection />
       
       {/* Featured Quote Section */}
-      <section className="py-40 px-[60px] text-center bg-editorial-bg border-y border-editorial-line/10">
+      <section className="py-40 px-6 md:px-[60px] text-center bg-editorial-bg border-y border-editorial-line/10">
         <div className="max-w-4xl mx-auto">
           <span className="text-editorial-accent text-[12px] uppercase tracking-[4px] font-semibold mb-12 block">Philosophy</span>
           <motion.blockquote 
@@ -34,7 +34,7 @@ export default function HomePage() {
           </motion.blockquote>
           <div className="flex justify-center items-center gap-6">
             <div className="w-16 h-px bg-editorial-line" />
-            <cite className="not-italic text-[11px] uppercase tracking-[4px] font-bold text-editorial-text/40">CREATIVE DIRECTOR, TRE VIỆT</cite>
+            <cite className="not-italic text-[11px] uppercase tracking-[4px] font-bold text-editorial-text/40">CREATIVE DIRECTOR, KC COOK</cite>
             <div className="w-16 h-px bg-editorial-line" />
           </div>
         </div>

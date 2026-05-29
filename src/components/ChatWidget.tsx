@@ -10,7 +10,7 @@ export default function ChatWidget() {
     {
       name: "Zalo",
       icon: <MessageSquare size={20} />,
-      url: "https://zalo.me/yourid",
+      url: "https://zalo.me/",
       color: "bg-blue-500",
       description: "Chat qua Zalo"
     },

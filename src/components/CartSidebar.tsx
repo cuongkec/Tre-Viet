@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   X, Plus, Minus, ShoppingBag, ArrowRight, Trash2, 
-  AlertTriangle, CreditCard, Landmark, Check
+  AlertTriangle, CreditCard, Landmark, Check, Copy
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
 
@@ -11,6 +11,7 @@ export default function CartSidebar() {
   const [showConfirmClear, setShowConfirmClear] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'payment' | 'success'>('cart');
   const [paymentMethod, setPaymentMethod] = useState<'bank' | 'qr'>('bank');
+  const [copied, setCopied] = useState(false);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
@@ -142,7 +143,7 @@ export default function CartSidebar() {
                             <div>
                               <div className="flex justify-between items-start mb-2">
                                 <h3 className="font-serif text-lg leading-tight">{item.name}</h3>
-                                <button onClick={() => removeFromCart(item.id)} className="text-[10px] uppercase tracking-widest opacity-40 hover:opacity-100 hover:text-editorial-accent transition-all">Xóa</button>
+                                <button onClick={() => removeFromCart(item.id, item.name)} className="text-[10px] uppercase tracking-widest opacity-40 hover:opacity-100 hover:text-editorial-accent transition-all">Xóa</button>
                               </div>
                               <p className="text-[10px] uppercase tracking-[2px] opacity-40 mb-4">{item.category}</p>
                             </div>
@@ -206,18 +207,36 @@ export default function CartSidebar() {
                              </div>
                              <div className="flex justify-between text-xs">
                                <span className="opacity-40">Chủ tài khoản:</span>
-                               <span className="font-bold uppercase">CÔNG TY TRE VIỆT</span>
+                               <span className="font-bold uppercase">CÔNG TY KC COOK</span>
                              </div>
-                             <div className="flex justify-between text-xs">
+                             <div className="flex justify-between items-center text-xs">
                                <span className="opacity-40">Số tài khoản:</span>
-                               <span className="font-bold tracking-wider">1903 4567 8901 234</span>
+                               <div className="flex items-center gap-2">
+                                 <span className="font-bold tracking-wider select-all">1903 4567 8901 234</span>
+                                 <button
+                                   onClick={() => {
+                                     navigator.clipboard.writeText("190345678901234");
+                                     setCopied(true);
+                                     setTimeout(() => setCopied(false), 2000);
+                                   }}
+                                   className="p-1 text-editorial-text hover:text-editorial-accent hover:scale-105 transition-all outline-none rounded-full hover:bg-editorial-accent/5 flex items-center justify-center"
+                                   title="Sao chép số tài khoản"
+                                   aria-label="Sao chép số tài khoản"
+                                 >
+                                   {copied ? (
+                                     <Check size={12} className="text-green-600 animate-in zoom-in duration-200" />
+                                   ) : (
+                                     <Copy size={12} className="opacity-60 hover:opacity-100" />
+                                   )}
+                                 </button>
+                               </div>
                              </div>
                           </div>
                         </div>
                       ) : (
                         <div className="flex flex-col items-center gap-4">
                            <div className="w-48 h-48 bg-white p-4 border border-editorial-line/10 group relative">
-                              <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=tre-viet-checkout" alt="Payment QR" className="w-full h-full grayscale group-hover:grayscale-0 transition-all duration-700" />
+                              <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=kc-cook-checkout" alt="Payment QR" className="w-full h-full grayscale group-hover:grayscale-0 transition-all duration-700" />
                               <div className="absolute inset-0 border-[2px] border-editorial-accent opacity-0 group-hover:opacity-100 transition-opacity" />
                            </div>
                            <p className="text-[10px] uppercase tracking-widest opacity-40 text-center">Quét mã để thanh toán ngay</p>
@@ -245,7 +264,7 @@ export default function CartSidebar() {
                      </div>
                      <h3 className="text-2xl font-serif mb-4">Đơn hàng thành công</h3>
                      <p className="text-xs opacity-60 leading-relaxed mb-12">
-                       Cảm ơn bạn đã tin tưởng Tre Việt. Chúng tôi sẽ sớm liên hệ để xác nhận đơn hàng của bạn.
+                       Cảm ơn bạn đã tin tưởng KC Cook. Chúng tôi sẽ sớm liên hệ để xác nhận đơn hàng của bạn.
                      </p>
                      <button 
                        onClick={closeSidebar}

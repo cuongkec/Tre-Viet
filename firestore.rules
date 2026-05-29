@@ -12,7 +12,10 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == "admin@sevenam.com.vn"
+      );
     }
 
     function isValidId(id) {
@@ -89,6 +92,11 @@ service cloud.firestore {
         && incoming().createdAt == request.time;
       allow get, list: if isAdmin();
       allow delete: if isAdmin();
+    }
+
+    match /settings/{document} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

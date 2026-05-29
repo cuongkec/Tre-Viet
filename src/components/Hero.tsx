@@ -1,22 +1,36 @@
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "../lib/firebase";
 
 export default function Hero() {
+  const [heroImage, setHeroImage] = useState("https://images.unsplash.com/photo-1513519247388-19345ed5d467?q=80&w=2070&auto=format&fit=crop");
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "homepageSettings"), (docSnap) => {
+      if (docSnap.exists() && docSnap.data().heroImage) {
+        setHeroImage(docSnap.data().heroImage);
+      }
+    });
+    return () => unsub();
+  }, []);
+
   return (
-    <section className="relative h-screen w-full pt-[120px] px-[60px] grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-[40px] bg-editorial-bg">
+    <section className="relative min-h-[100dvh] w-full pt-[120px] pb-12 lg:pb-0 px-6 md:px-[60px] grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-[40px] bg-editorial-bg overflow-hidden">
       {/* Accent Circle behind */}
       <div className="absolute top-[-50px] right-[-50px] w-[600px] h-[600px] border border-editorial-muted/30 rounded-full -z-10" />
       <div className="absolute left-5 bottom-[300px] writing-vertical-rl rotate-180 text-[11px] tracking-[5px] text-editorial-muted pb-10">SINCE 1992</div>
 
       {/* Hero Text */}
-      <div className="flex flex-col justify-center max-w-2xl">
+      <div className="flex flex-col justify-center max-w-2xl mt-12 md:mt-0">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: "easeOut" }}
         >
-          <h1 className="text-[82px] leading-[0.9] font-serif mb-[30px] font-light overflow-hidden">
+          <h1 className="text-5xl md:text-[82px] leading-[0.9] font-serif mb-[30px] font-light overflow-hidden">
             <motion.span 
               initial={{ y: "100%" }} 
               animate={{ y: 0 }} 
@@ -74,7 +88,7 @@ export default function Hero() {
           }}
         />
         <img
-          src="https://images.unsplash.com/photo-1513519247388-19345ed5d467?q=80&w=2070&auto=format&fit=crop"
+          src={heroImage}
           alt="Bamboo Interior Hero"
           className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
           referrerPolicy="no-referrer"

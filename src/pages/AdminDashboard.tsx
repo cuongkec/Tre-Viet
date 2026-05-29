@@ -4,11 +4,11 @@ import {
   Plus, Edit2, Trash2, Save, X, 
   LogIn, LogOut, Package, Image as ImageIcon, 
   Tag, Briefcase, DollarSign, AlertCircle, CheckCircle,
-  Upload, Loader, Settings, Grid, FileText
+  Upload, Loader, Settings, Grid, FileText, RefreshCw
 } from "lucide-react";
 import { 
   collection, query, onSnapshot, 
-  addDoc, updateDoc, deleteDoc, doc, 
+  addDoc, updateDoc, deleteDoc, doc, setDoc,
   serverTimestamp, getDoc
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -16,6 +16,7 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { db, auth, storage, loginWithGoogle, logout } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import ImageCropDialog from "../components/ImageCropDialog";
 
 interface Product {
   id: string;
@@ -37,6 +38,7 @@ export default function AdminDashboard() {
   const [uploading, setUploading] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [status, setStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -45,14 +47,19 @@ export default function AdminDashboard() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [newMatValue, setNewMatValue] = useState("Handcrafted");
   const [inquiries, setInquiries] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'products' | 'metadata' | 'inquiries' | 'media'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'metadata' | 'inquiries' | 'media' | 'homepage'>('products');
   const [categories, setCategories] = useState<{id: string, name: string}[]>([]);
   const [materials, setMaterials] = useState<{id: string, name: string, value: string}[]>([]);
 
   // Function to upload to Cloudinary (Alternative Storage)
   const uploadToCloudinary = async (file: File) => {
-    const cloudName = (import.meta as any).env.VITE_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = (import.meta as any).env.VITE_CLOUDINARY_UPLOAD_PRESET;
+    // Check file size (10MB limit for Cloudinary free tier)
+    if (file.size > 10485760) {
+      throw new Error(`Kích thước file quá lớn: ${(file.size / 1024 / 1024).toFixed(2)}MB. Tối đa 10MB.`);
+    }
+
+    const cloudName = (import.meta as any).env.VITE_CLOUDINARY_CLOUD_NAME || "dqashtrhn";
+    const uploadPreset = (import.meta as any).env.VITE_CLOUDINARY_UPLOAD_PRESET || "TreViet";
     
     // Only attempt if Cloudinary is configured
     if (!cloudName || !uploadPreset) {
@@ -84,10 +91,58 @@ export default function AdminDashboard() {
       throw e;
     }
   };
+
+  const handleImageSelectForCrop = (e: React.ChangeEvent<HTMLInputElement>, aspect: number, onCompleteUpload: (url: string) => void) => {
+    if (!e.target.files?.[0]) return;
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropState({
+        src: reader.result as string,
+        aspect,
+        onComplete: async (croppedFile: File) => {
+          setCropState(null);
+          try {
+            setUploading(true);
+            const url = await uploadToCloudinary(croppedFile);
+            if (url) onCompleteUpload(url);
+          } catch (err: any) {
+            setStatus({ type: 'error', msg: err.message || 'Lỗi tải ảnh lên' });
+          } finally {
+            setUploading(false);
+          }
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
   const [newCatName, setNewCatName] = useState("");
   const [newMatName, setNewMatName] = useState("");
   const [editingMetadata, setEditingMetadata] = useState<{id: string, name: string, type: 'category' | 'material'} | null>(null);
   const [editMetaValue, setEditMetaValue] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [cropState, setCropState] = useState<{ src: string, aspect: number, onComplete: (file: File) => void } | null>(null);
+
+  const [homepageSettings, setHomepageSettings] = useState({
+    logoImage: "",
+    heroImage: "https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1500&q=80",
+    storyImage: "https://images.unsplash.com/photo-1596701062351-8c2c14d1fdd0?q=80&w=1974&auto=format&fit=crop",
+    collections: {
+      livingRoom: "https://images.unsplash.com/photo-1592078615290-033ee584e267?auto=format&fit=crop&w=1000&q=80",
+      lighting: "https://images.unsplash.com/photo-1513519247388-19345ed5d467?auto=format&fit=crop&w=1000&q=80",
+      kitchen: "https://images.unsplash.com/photo-1600585152220-90363fe7e115?auto=format&fit=crop&w=1000&q=80"
+    },
+    archiveImages: [
+      "https://images.unsplash.com/photo-1596073413908-445253ce39bb?auto=format&fit=crop&w=1500&q=80",
+      "https://images.unsplash.com/photo-1594897030264-ab7d87efc473?auto=format&fit=crop&w=1500&q=80",
+      "https://images.unsplash.com/photo-1582531383827-0240974ed22f?auto=format&fit=crop&w=1500&q=80",
+      "https://images.unsplash.com/photo-1596701062351-8c2c14d1fdd0?auto=format&fit=crop&w=1500&q=80",
+      "https://images.unsplash.com/photo-1585128719715-46776b56a0d1?auto=format&fit=crop&w=1500&q=80",
+      "https://images.unsplash.com/photo-1549439602-43ebca2327af?auto=format&fit=crop&w=1500&q=80"
+    ]
+  });
+  const [tempArchiveUrl, setTempArchiveUrl] = useState("");
 
   // Form State
   const [formData, setFormData] = useState({
@@ -118,8 +173,8 @@ export default function AdminDashboard() {
       } else if (sortBy === 'price') {
         comparison = a.priceNum - b.priceNum;
       } else if (sortBy === 'date') {
-        const dateA = (a as any).createdAt?.seconds || 0;
-        const dateB = (b as any).createdAt?.seconds || 0;
+        const dateA = (a as any).created_at?.seconds || (a as any).createdAt?.seconds || 0;
+        const dateB = (b as any).created_at?.seconds || (b as any).createdAt?.seconds || 0;
         comparison = dateA - dateB;
       }
       return sortOrder === 'asc' ? comparison : -comparison;
@@ -131,8 +186,13 @@ export default function AdminDashboard() {
       try {
         setUser(user);
         if (user) {
-          const adminDoc = await getDoc(doc(db, "admins", user.uid));
-          setIsAdmin(adminDoc.exists());
+          try {
+            const adminDoc = await getDoc(doc(db, "admins", user.uid));
+            setIsAdmin(adminDoc.exists() || user.email === 'admin@sevenam.com.vn');
+          } catch (err) {
+            // If getDoc fails due to permissions or missing, fallback to email check
+            setIsAdmin(user.email === 'admin@sevenam.com.vn');
+          }
         } else {
           setIsAdmin(false);
         }
@@ -172,11 +232,18 @@ export default function AdminDashboard() {
       setInquiries(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    const unsubHomepageSettings = onSnapshot(doc(db, "settings", "homepageSettings"), (docSnap) => {
+      if (docSnap.exists()) {
+        setHomepageSettings(docSnap.data() as any);
+      }
+    });
+
     return () => {
       unsubscribe();
       unsubCats();
       unsubMats();
       unsubInquiries();
+      unsubHomepageSettings();
     };
   }, [isAdmin]);
 
@@ -204,9 +271,11 @@ export default function AdminDashboard() {
     }
   };
 
+  const [confirmDeletingMeta, setConfirmDeletingMeta] = useState<string | null>(null);
+
   const deleteMetadata = async (col: string, id: string) => {
-    if (!confirm("Xác nhận xóa? Bạn không thể hoàn tác hành động này.")) return;
     setStatus({ type: 'success', msg: "Đang xóa..." });
+    setConfirmDeletingMeta(null);
     try {
       await deleteDoc(doc(db, col, id));
       setStatus({ type: 'success', msg: "Đã xóa thành công" });
@@ -217,6 +286,17 @@ export default function AdminDashboard() {
         type: 'error', 
         msg: `Lỗi khi xóa: ${error.message || 'Thiếu quyền truy cập hoặc lỗi kết nối'}` 
       });
+    }
+  };
+
+  const saveHomepageSettings = async () => {
+    try {
+      await setDoc(doc(db, "settings", "homepageSettings"), homepageSettings);
+      setStatus({ type: 'success', msg: "Đã cập nhật trang chủ" });
+      setTimeout(() => setStatus(null), 3000);
+    } catch (e) {
+      console.error(e);
+      setStatus({ type: 'error', msg: "Không thể cập nhật trang chủ" });
     }
   };
 
@@ -248,8 +328,8 @@ export default function AdminDashboard() {
         try {
           const uploadPromises = selectedFiles.map(async (file) => {
             // Using a standard unsplash/default approach for demo or forcing Cloudinary
-            const cloudName = (import.meta as any).env.VITE_CLOUDINARY_CLOUD_NAME || "dijr976sd"; 
-            const uploadPreset = (import.meta as any).env.VITE_CLOUDINARY_UPLOAD_PRESET || "treviet_unsigned";
+            const cloudName = (import.meta as any).env.VITE_CLOUDINARY_CLOUD_NAME || "dqashtrhn"; 
+            const uploadPreset = (import.meta as any).env.VITE_CLOUDINARY_UPLOAD_PRESET || "TreViet";
             
             const fd = new FormData();
             fd.append('file', file);
@@ -308,7 +388,8 @@ export default function AdminDashboard() {
       } else {
         await addDoc(collection(db, "products"), {
           ...productData,
-          createdAt: serverTimestamp()
+          created_at: serverTimestamp(),
+          createdAt: serverTimestamp() // keeping createdAt just in case other parts of the app use it
         });
         setStatus({ type: 'success', msg: "Thêm sản phẩm thành công" });
       }
@@ -325,14 +406,23 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa sản phẩm này?")) return;
+  const confirmDelete = (id: string) => {
+    setDeletingId(id);
+  };
+
+  const executeDelete = async (id: string) => {
     try {
       await deleteDoc(doc(db, "products", id));
       setStatus({ type: 'success', msg: "Đã xóa sản phẩm" });
     } catch (error) {
       setStatus({ type: 'error', msg: "Không thể xóa sản phẩm" });
+    } finally {
+      setDeletingId(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setDeletingId(null);
   };
 
   const startEdit = (product: Product) => {
@@ -419,7 +509,7 @@ export default function AdminDashboard() {
     <div className="bg-editorial-bg min-h-screen">
       <Navbar />
       
-      <main className="pt-40 pb-20 px-[60px] max-w-7xl mx-auto">
+      <main className="pt-40 pb-20 px-6 md:px-[60px] max-w-7xl mx-auto">
         {!isAdmin ? (
           <div className="text-center py-20">
             <h1 className="text-4xl font-serif mb-8">Admin Dashboard</h1>
@@ -478,6 +568,19 @@ export default function AdminDashboard() {
                 <h1 className="text-5xl font-serif">Quản Lý Danh Mục</h1>
               </div>
               <div className="flex gap-4">
+                <button 
+                  onClick={() => {
+                    setRefreshing(true);
+                    setTimeout(() => setRefreshing(false), 800);
+                    setStatus({ type: 'success', msg: 'Đã cập nhật dữ liệu mới nhất' });
+                    setTimeout(() => setStatus(null), 2000);
+                  }}
+                  className={`p-4 border border-editorial-line/10 hover:bg-editorial-muted/10 transition-all text-editorial-text/40 hover:text-editorial-text ${refreshing ? 'opacity-50' : ''}`}
+                  disabled={refreshing}
+                  title="Làm mới dữ liệu"
+                >
+                  <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
+                </button>
                 <button 
                   onClick={() => setIsAdding(!isAdding)}
                   className="px-8 py-4 bg-editorial-text text-white hover:bg-editorial-accent transition-all flex items-center gap-3 uppercase text-[10px] tracking-[4px] font-bold"
@@ -559,8 +662,17 @@ export default function AdminDashboard() {
                               {formData.images?.map((img, idx) => (
                                 <div key={`ex-${idx}`} className="relative aspect-square border overflow-hidden group">
                                   <img src={img} alt="" className="w-full h-full object-cover" />
-                                  <button type="button" onClick={() => removeGalleryImage(idx)} className="absolute inset-0 bg-red-500/80 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center"><X size={14} /></button>
-                                  {img === formData.image && <div className="absolute top-0 left-0 bg-editorial-accent text-white text-[8px] px-1 uppercase">Main</div>}
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                    {img !== formData.image && (
+                                      <button type="button" onClick={() => setFormData({...formData, image: img})} className="bg-white text-editorial-text text-[9px] px-2 py-1 font-bold uppercase transition-transform hover:scale-105" title="Đặt làm ảnh chính">
+                                        Main
+                                      </button>
+                                    )}
+                                    <button type="button" onClick={() => removeGalleryImage(idx)} className="bg-red-500 text-white p-1 hover:bg-red-600 transition-colors" title="Xóa">
+                                      <X size={14} />
+                                    </button>
+                                  </div>
+                                  {img === formData.image && <div className="absolute top-0 left-0 bg-editorial-accent text-white text-[8px] px-1 uppercase z-10 shadow-sm pointer-events-none">Main</div>}
                                 </div>
                               ))}
                               {/* New Previews */}
@@ -589,23 +701,49 @@ export default function AdminDashboard() {
                             </div>
                           </div>
 
-                          <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                              <span className="text-[10px] uppercase tracking-widest opacity-30">URL ảnh</span>
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <span className="text-[10px] uppercase tracking-widest opacity-30">Thêm URL ảnh</span>
+                              </div>
+                              <input 
+                                id="newImageUrlInput"
+                                className="w-full bg-white border border-editorial-line/10 p-4 pl-[110px] font-mono text-[10px] outline-none focus:border-editorial-accent transition-colors"
+                                placeholder="https://..."
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const val = e.currentTarget.value.trim();
+                                    if (val) {
+                                      setFormData(prev => ({ 
+                                        ...prev, 
+                                        image: prev.image ? prev.image : val,
+                                        images: !prev.images?.includes(val) ? [...(prev.images || []), val] : (prev.images || []) 
+                                      }));
+                                      e.currentTarget.value = '';
+                                    }
+                                  }
+                                }}
+                              />
                             </div>
-                            <input 
-                              value={formData.image}
-                              onChange={e => {
-                                const val = e.target.value;
-                                setFormData({ 
-                                  ...formData, 
-                                  image: val, 
-                                  images: val && !formData.images?.includes(val) ? [...(formData.images || []), val] : (formData.images || []) 
-                                });
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                const input = document.getElementById("newImageUrlInput") as HTMLInputElement;
+                                const val = input?.value?.trim();
+                                if (val) {
+                                  setFormData(prev => ({ 
+                                    ...prev, 
+                                    image: prev.image ? prev.image : val,
+                                    images: !prev.images?.includes(val) ? [...(prev.images || []), val] : (prev.images || []) 
+                                  }));
+                                  input.value = '';
+                                }
                               }}
-                              className="w-full bg-white border border-editorial-line/10 p-4 pl-24 font-mono text-[10px] outline-none focus:border-editorial-accent transition-colors"
-                              placeholder="https://..."
-                            />
+                              className="bg-black text-white px-6 text-[10px] uppercase font-bold tracking-widest hover:bg-editorial-accent transition-colors"
+                            >
+                              Thêm
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -715,6 +853,12 @@ export default function AdminDashboard() {
               >
                 <FileText size={14} /> Liên hệ ({inquiries.length})
               </button>
+              <button 
+                onClick={() => setActiveTab('homepage')}
+                className={`px-8 py-4 text-[10px] uppercase tracking-[4px] font-bold transition-all flex items-center gap-2 ${activeTab === 'homepage' ? 'border-b-2 border-editorial-accent text-editorial-accent' : 'opacity-40'}`}
+              >
+                <Settings size={14} /> Trang chủ
+              </button>
             </div>
 
             {activeTab === 'products' ? (
@@ -787,7 +931,14 @@ export default function AdminDashboard() {
                             <td className="py-6 px-4 text-right">
                               <div className="flex justify-end gap-4">
                                 <button onClick={() => startEdit(product)} className="p-2 text-editorial-text hover:text-blue-600 transition-colors"><Edit2 size={18} /></button>
-                                <button onClick={() => handleDelete(product.id)} className="p-2 text-editorial-text hover:text-editorial-accent transition-colors"><Trash2 size={18} /></button>
+                                {deletingId === product.id ? (
+                                  <div className="flex items-center gap-2">
+                                    <button onClick={() => executeDelete(product.id)} className="px-3 py-1 bg-red-600 text-white text-[10px] uppercase font-bold tracking-wider hover:bg-red-700">Delete</button>
+                                    <button onClick={cancelDelete} className="px-3 py-1 bg-gray-200 text-editorial-text text-[10px] uppercase font-bold tracking-wider hover:bg-gray-300">Cancel</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => confirmDelete(product.id)} className="p-2 text-editorial-text hover:text-editorial-accent transition-colors"><Trash2 size={18} /></button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -814,36 +965,48 @@ export default function AdminDashboard() {
                       />
                       <button type="submit" className="px-6 py-2 bg-editorial-text text-white text-[10px] uppercase tracking-widest font-bold">Thêm</button>
                     </form>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {categories.map(cat => (
-                        <div key={cat.id} className="flex justify-between items-center py-3 border-b border-editorial-line/5 text-sm group">
+                        <div key={cat.id} className="flex justify-between items-center p-3.5 bg-editorial-muted/5 border border-editorial-line/10 rounded-[2px] text-sm hover:bg-editorial-muted/10 transition-colors">
                           {editingMetadata?.id === cat.id ? (
                             <div className="flex gap-2 w-full">
                               <input 
                                 value={editMetaValue}
                                 onChange={e => setEditMetaValue(e.target.value)}
-                                className="flex-1 border-b border-editorial-accent outline-none"
+                                className="flex-1 border-b border-editorial-accent bg-transparent py-1 outline-none text-sm font-sans"
                                 autoFocus
                               />
-                              <button onClick={handleUpdateMetadata} className="text-blue-500 font-bold uppercase text-[10px]">Lưu</button>
-                              <button onClick={() => setEditingMetadata(null)} className="text-gray-400 font-bold uppercase text-[10px]">Hủy</button>
+                              <button onClick={handleUpdateMetadata} className="px-3 py-1 bg-editorial-accent text-white font-bold uppercase text-[9px] tracking-wider hover:bg-editorial-accent/90 transition-colors">Lưu</button>
+                              <button onClick={() => setEditingMetadata(null)} className="px-3 py-1 bg-gray-200 text-[#333] font-bold uppercase text-[9px] tracking-wider hover:bg-gray-300 transition-colors">Hủy</button>
                             </div>
                           ) : (
                             <>
-                              <span className="font-serif italic">{cat.name}</span>
-                              <div className="flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <span className="font-serif italic font-medium text-[15px]">{cat.name}</span>
+                              <div className="flex gap-2">
                                 <button 
                                   onClick={() => {
                                     setEditingMetadata({ id: cat.id, name: cat.name, type: 'category' });
                                     setEditMetaValue(cat.name);
                                   }} 
-                                  className="text-editorial-text hover:text-blue-500"
+                                  className="p-2 text-editorial-text hover:text-blue-600 hover:bg-blue-50 transition-colors rounded-[2px]"
+                                  title="Chỉnh sửa"
                                 >
-                                  <Edit2 size={12} />
+                                  <Edit2 size={13} />
                                 </button>
-                                <button onClick={() => deleteMetadata('categories', cat.id)} className="text-red-400 hover:text-red-600">
-                                  <Trash2 size={12} />
-                                </button>
+                                {confirmDeletingMeta === cat.id ? (
+                                  <div className="flex items-center gap-1">
+                                    <button onClick={() => deleteMetadata('categories', cat.id)} className="px-2 py-1 bg-red-600 text-white text-[9px] uppercase font-bold tracking-wider hover:bg-red-700 transition-colors rounded-[2px]">Xóa</button>
+                                    <button onClick={() => setConfirmDeletingMeta(null)} className="px-2 py-1 bg-gray-200 text-gray-700 text-[9px] uppercase font-bold tracking-wider hover:bg-gray-300 transition-colors rounded-[2px]">Hủy</button>
+                                  </div>
+                                ) : (
+                                  <button 
+                                    onClick={() => setConfirmDeletingMeta(cat.id)} 
+                                    className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors rounded-[2px]"
+                                    title="Xóa"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
                               </div>
                             </>
                           )}
@@ -869,47 +1032,59 @@ export default function AdminDashboard() {
                       <select 
                         value={newMatValue}
                         onChange={e => setNewMatValue(e.target.value)}
-                        className="border-b border-editorial-line/20 py-2 outline-none text-xs"
+                        className="border-b border-editorial-line/20 py-2 outline-none text-xs bg-transparent"
                       >
                          <option value="Natural">Tre Tự Nhiên (Natural)</option>
                          <option value="Handcrafted">Thủ Công (Handcrafted)</option>
                          <option value="Processed">Tre Kỹ Thuật (Processed)</option>
                       </select>
-                      <button type="submit" className="w-full py-3 bg-editorial-text text-white text-[10px] uppercase tracking-widest font-bold">Thêm chất liệu</button>
+                      <button type="submit" className="w-full py-3 bg-editorial-text text-white text-[10px] uppercase tracking-widest font-bold hover:bg-editorial-accent transition-colors">Thêm chất liệu</button>
                     </form>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {materials.map(mat => (
-                        <div key={mat.id} className="flex justify-between items-center py-3 border-b border-editorial-line/5 text-sm group">
+                        <div key={mat.id} className="flex justify-between items-center p-3.5 bg-editorial-muted/5 border border-editorial-line/10 rounded-[2px] text-sm hover:bg-editorial-muted/10 transition-colors">
                           {editingMetadata?.id === mat.id ? (
                             <div className="flex gap-2 w-full">
                               <input 
                                 value={editMetaValue}
                                 onChange={e => setEditMetaValue(e.target.value)}
-                                className="flex-1 border-b border-editorial-accent outline-none"
+                                className="flex-1 border-b border-editorial-accent bg-transparent py-1 outline-none text-sm font-sans"
                                 autoFocus
                               />
-                              <button onClick={handleUpdateMetadata} className="text-blue-500 font-bold uppercase text-[10px]">Lưu</button>
-                              <button onClick={() => setEditingMetadata(null)} className="text-gray-400 font-bold uppercase text-[10px]">Hủy</button>
+                              <button onClick={handleUpdateMetadata} className="px-3 py-1 bg-editorial-accent text-white font-bold uppercase text-[9px] tracking-wider hover:bg-editorial-accent/90 transition-colors">Lưu</button>
+                              <button onClick={() => setEditingMetadata(null)} className="px-3 py-1 bg-gray-200 text-[#333] font-bold uppercase text-[9px] tracking-wider hover:bg-gray-300 transition-colors">Hủy</button>
                             </div>
                           ) : (
                             <>
                               <div>
-                                <span className="font-serif italic">{mat.name}</span>
-                                <span className="text-[10px] ml-3 uppercase opacity-40 font-bold">({mat.value})</span>
+                                <span className="font-serif italic font-medium text-[15px]">{mat.name}</span>
+                                <span className="text-[9px] ml-2.5 px-2 py-0.5 bg-editorial-accent/10 text-editorial-accent font-bold uppercase tracking-wider rounded-[2px]">({mat.value})</span>
                               </div>
-                              <div className="flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex gap-2">
                                 <button 
                                   onClick={() => {
                                     setEditingMetadata({ id: mat.id, name: mat.name, type: 'material' });
                                     setEditMetaValue(mat.name);
                                   }} 
-                                  className="text-editorial-text hover:text-blue-500"
+                                  className="p-2 text-editorial-text hover:text-blue-600 hover:bg-blue-50 transition-colors rounded-[2px]"
+                                  title="Chỉnh sửa"
                                 >
-                                  <Edit2 size={12} />
+                                  <Edit2 size={13} />
                                 </button>
-                                <button onClick={() => deleteMetadata('materials', mat.id)} className="text-red-400 hover:text-red-600">
-                                  <Trash2 size={12} />
-                                </button>
+                                {confirmDeletingMeta === mat.id ? (
+                                  <div className="flex items-center gap-1">
+                                    <button onClick={() => deleteMetadata('materials', mat.id)} className="px-2 py-1 bg-red-600 text-white text-[9px] uppercase font-bold tracking-wider hover:bg-red-700 transition-colors rounded-[2px]">Xóa</button>
+                                    <button onClick={() => setConfirmDeletingMeta(null)} className="px-2 py-1 bg-gray-200 text-gray-700 text-[9px] uppercase font-bold tracking-wider hover:bg-gray-300 transition-colors rounded-[2px]">Hủy</button>
+                                  </div>
+                                ) : (
+                                  <button 
+                                    onClick={() => setConfirmDeletingMeta(mat.id)} 
+                                    className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors rounded-[2px]"
+                                    title="Xóa"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
                               </div>
                             </>
                           )}
@@ -941,7 +1116,7 @@ export default function AdminDashboard() {
                   </div>
                 ))}
               </div>
-            ) : (
+            ) : activeTab === 'inquiries' ? (
               <div className="space-y-6">
                 {inquiries.length === 0 ? (
                   <div className="py-20 text-center border border-dashed border-editorial-line/20 rounded-lg">
@@ -965,22 +1140,344 @@ export default function AdminDashboard() {
                       <div className="text-sm text-[#666] leading-relaxed border-l-2 border-editorial-accent/20 pl-6 italic">
                         "{inquiry.message}"
                       </div>
-                      <button 
-                         onClick={() => deleteMetadata('inquiries', inquiry.id)}
-                         className="absolute top-4 right-4 p-2 text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                         <Trash2 size={16} />
-                      </button>
+                      <div className="absolute top-4 right-4">
+                        {confirmDeletingMeta === inquiry.id ? (
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => deleteMetadata('inquiries', inquiry.id)} className="px-3 py-1 bg-red-600 text-white text-[9px] uppercase font-bold tracking-wider hover:bg-red-700 transition-colors rounded-[2px]">Xóa</button>
+                            <button onClick={() => setConfirmDeletingMeta(null)} className="px-3 py-1 bg-gray-200 text-gray-700 text-[9px] uppercase font-bold tracking-wider hover:bg-gray-300 transition-colors rounded-[2px]">Hủy</button>
+                          </div>
+                        ) : (
+                          <button 
+                             onClick={() => setConfirmDeletingMeta(inquiry.id)}
+                             className="p-2 text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity rounded-[2px]"
+                          >
+                             <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}
               </div>
-            )}
+            ) : activeTab === 'homepage' ? (
+              <div className="space-y-12">
+                <div className="bg-white p-8 md:p-12 border border-editorial-line/10">
+                  <h3 className="text-xl font-serif mb-8 border-b border-editorial-line/10 pb-4">Logo và Nhận diện thương hiệu</h3>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-[2px] font-bold block mb-4">Logo Website</label>
+                    <div className="h-24 bg-editorial-muted/10 mb-4 border border-editorial-line/10 relative overflow-hidden group flex items-center justify-center">
+                      {homepageSettings.logoImage ? (
+                        <img 
+                          src={homepageSettings.logoImage} 
+                          className="h-full object-contain p-2" 
+                          alt="Logo Preview" 
+                        />
+                      ) : (
+                        <span className="text-xs uppercase tracking-widest opacity-30">Chưa có Logo</span>
+                      )}
+                    </div>
+                    <div className="flex gap-4 items-center">
+                      <input
+                        type="text"
+                        value={homepageSettings.logoImage || ''}
+                        onChange={(e) => setHomepageSettings({
+                          ...homepageSettings,
+                          logoImage: e.target.value
+                        })}
+                        placeholder="URL Logo"
+                        className="flex-1 py-3 px-4 border border-editorial-line/10 bg-transparent text-sm focus:border-editorial-accent outline-none font-sans"
+                      />
+                      <label className="flex items-center justify-center gap-2 border border-dashed border-editorial-line/30 py-3 px-6 cursor-pointer bg-editorial-muted/5 hover:bg-editorial-muted/10 hover:border-editorial-accent transition-all text-[11px] font-bold uppercase tracking-[2px] rounded-[2px] shrink-0">
+                        <Upload size={14} className="text-editorial-accent" /> {uploading ? "ĐANG TẢI LÊN..." : "TẢI LOGO LÊN"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setUploading(true);
+                              try {
+                                const url = await uploadToCloudinary(file);
+                                if (url) {
+                                  setHomepageSettings({
+                                    ...homepageSettings,
+                                    logoImage: url
+                                  });
+                                  setStatus({ type: "success", msg: "Tải logo lên thành công" });
+                                }
+                              } catch (error) {
+                                setStatus({ type: "error", msg: "Lỗi khi tải logo lên" });
+                              } finally {
+                                setUploading(false);
+                              }
+                            }
+                          }}
+                          className="hidden"
+                          disabled={uploading}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-8 md:p-12 border border-editorial-line/10">
+                  <h3 className="text-xl font-serif mb-8 border-b border-editorial-line/10 pb-4">Bamboo Interior Hero (Ảnh chính)</h3>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-[2px] font-bold block mb-4">Ảnh Hero</label>
+                    <div className="aspect-[21/9] bg-editorial-muted/10 mb-4 border border-editorial-line/10 relative overflow-hidden group">
+                      {homepageSettings.heroImage && (
+                        <img 
+                          src={homepageSettings.heroImage} 
+                          className="w-full h-full object-cover group-hover:scale-[1.01] transition-transform duration-500" 
+                          alt="Hero" 
+                        />
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      value={homepageSettings.heroImage || ""}
+                      onChange={(e) => setHomepageSettings({
+                        ...homepageSettings,
+                        heroImage: e.target.value
+                      })}
+                      placeholder="URL Hình ảnh"
+                      className="w-full py-3 px-4 border border-editorial-line/10 bg-transparent text-sm focus:border-editorial-accent outline-none mb-3 font-sans"
+                    />
+                    <label className="flex items-center justify-center gap-2 border border-dashed border-editorial-line/30 py-4 px-6 cursor-pointer bg-editorial-muted/5 hover:bg-editorial-muted/10 hover:border-editorial-accent transition-all text-[11px] font-bold uppercase tracking-[2px] rounded-[2px]">
+                      <Upload size={14} className="text-editorial-accent" /> {uploading ? "ĐANG TẢI LÊN..." : "TẢI ẢNH LÊN"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setUploading(true);
+                            try {
+                              const url = await uploadToCloudinary(file);
+                              if (url) {
+                                setHomepageSettings({
+                                  ...homepageSettings,
+                                  heroImage: url
+                                });
+                                setStatus({ type: "success", msg: "Tải ảnh lên thành công" });
+                              }
+                            } catch (error) {
+                              setStatus({ type: "error", msg: "Lỗi khi tải ảnh lên" });
+                            } finally {
+                              setUploading(false);
+                            }
+                          }
+                        }}
+                        className="hidden"
+                        disabled={uploading}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="bg-white p-8 md:p-12 border border-editorial-line/10">
+                  <h3 className="text-xl font-serif mb-8 border-b border-editorial-line/10 pb-4">Story Section (Kế thừa & sáng tạo)</h3>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-[2px] font-bold block mb-4">Ảnh câu chuyện</label>
+                    <div className="aspect-[4/5] md:aspect-[3/4] max-w-sm bg-editorial-muted/10 mb-4 border border-editorial-line/10 relative overflow-hidden group">
+                      {homepageSettings.storyImage && (
+                        <img 
+                          src={homepageSettings.storyImage} 
+                          className="w-full h-full object-cover group-hover:scale-[1.01] transition-transform duration-500" 
+                          alt="Story" 
+                        />
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      value={homepageSettings.storyImage || ""}
+                      onChange={(e) => setHomepageSettings({
+                        ...homepageSettings,
+                        storyImage: e.target.value
+                      })}
+                      placeholder="URL Hình ảnh"
+                      className="w-full py-3 px-4 border border-editorial-line/10 bg-transparent text-sm focus:border-editorial-accent outline-none mb-3 font-sans"
+                    />
+                    <label className="flex items-center justify-center gap-2 border border-dashed border-editorial-line/30 py-4 px-6 cursor-pointer bg-editorial-muted/5 hover:bg-editorial-muted/10 hover:border-editorial-accent transition-all text-[11px] font-bold uppercase tracking-[2px] rounded-[2px] max-w-sm">
+                      <Upload size={14} className="text-editorial-accent" /> Tải ảnh lên & Cắt hình
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleImageSelectForCrop(e, 3/4, (url) => {
+                          setHomepageSettings({
+                            ...homepageSettings,
+                            storyImage: url
+                          });
+                        })}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="bg-white p-8 md:p-12 border border-editorial-line/10">
+                  <h3 className="text-xl font-serif mb-8 border-b border-editorial-line/10 pb-4">Our Collections (Ảnh trang chủ)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {['livingRoom', 'lighting', 'kitchen'].map((key) => (
+                      <div key={key}>
+                        <label className="text-[10px] uppercase tracking-[2px] font-bold block mb-4">
+                          {key === 'livingRoom' ? 'Bàn Ghế Phòng Khách' : key === 'lighting' ? 'Đèn Trang Trí' : 'Phụ Kiện Nhà Bếp'}
+                        </label>
+                        <div className="aspect-[4/5] bg-editorial-muted/10 mb-4 border border-editorial-line/10 relative overflow-hidden group">
+                          {homepageSettings.collections[key as keyof typeof homepageSettings.collections] && (
+                            <img 
+                              src={homepageSettings.collections[key as keyof typeof homepageSettings.collections]} 
+                              className="w-full h-full object-cover group-hover:scale-[1.01] transition-transform duration-500" 
+                              alt={key} 
+                            />
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          value={homepageSettings.collections[key as keyof typeof homepageSettings.collections]}
+                          onChange={(e) => setHomepageSettings({
+                            ...homepageSettings,
+                            collections: {
+                              ...homepageSettings.collections,
+                              [key]: e.target.value
+                            }
+                          })}
+                          placeholder="URL Hình ảnh"
+                          className="w-full py-3 px-4 border border-editorial-line/10 bg-transparent text-sm focus:border-editorial-accent outline-none mb-3 font-sans"
+                        />
+                        <label className="flex items-center justify-center gap-2 border border-dashed border-editorial-line/30 py-3 px-4 cursor-pointer bg-editorial-muted/5 hover:bg-editorial-muted/10 hover:border-editorial-accent transition-all text-[10px] font-bold uppercase tracking-[1.5px] rounded-[2px] w-full">
+                          <Upload size={12} className="text-editorial-accent" /> Tải ảnh lên & Cắt hình
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleImageSelectForCrop(e, 4/5, (url) => {
+                              setHomepageSettings({
+                                ...homepageSettings,
+                                collections: {
+                                  ...homepageSettings.collections,
+                                  [key]: url
+                                }
+                              });
+                            })}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white p-8 md:p-12 border border-editorial-line/10">
+                  <h3 className="text-xl font-serif mb-8 border-b border-editorial-line/10 pb-4">Archive (Kho Lưu Trữ Vẻ Đẹp)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    {homepageSettings.archiveImages.map((img, i) => (
+                      <div 
+                        key={i} 
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', i.toString());
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                          if (isNaN(draggedIndex) || draggedIndex === i) return;
+                          const newImages = [...homepageSettings.archiveImages];
+                          const draggedItem = newImages[draggedIndex];
+                          newImages.splice(draggedIndex, 1);
+                          newImages.splice(i, 0, draggedItem);
+                          setHomepageSettings({ ...homepageSettings, archiveImages: newImages });
+                        }}
+                        className="aspect-video bg-editorial-muted/10 relative group border border-editorial-line/10 cursor-move"
+                      >
+                        <img src={img} className="w-full h-full object-cover" alt="" draggable={false} />
+                        <div className="absolute inset-0 bg-black/50 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity uppercase text-[10px] tracking-widest font-bold gap-2">
+                           <span className="mb-2">Kéo thả để sắp xếp</span>
+                           <button
+                             onClick={() => setHomepageSettings({
+                               ...homepageSettings,
+                               archiveImages: homepageSettings.archiveImages.filter((_, idx) => idx !== i)
+                             })}
+                             className="text-red-300 hover:text-red-400 mt-2 px-4 py-2 border border-red-300/30"
+                           >
+                             Xóa
+                           </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-4 items-end">
+                    <div className="flex-1">
+                      <label className="text-[10px] uppercase tracking-[2px] font-bold block mb-4">Thêm URL ảnh hoặc Tải lên</label>
+                      <input
+                        type="text"
+                        value={tempArchiveUrl}
+                        onChange={(e) => setTempArchiveUrl(e.target.value)}
+                        placeholder="URL hình ảnh"
+                        className="w-full py-4 px-6 border border-editorial-line/10 bg-transparent text-sm focus:border-editorial-accent outline-none"
+                      />
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <input
+                          type="file"
+                          accept="image/*"
+                          id="archive-upload"
+                          className="hidden"
+                          onChange={(e) => handleImageSelectForCrop(e, 16/9, (url) => {
+                            setHomepageSettings({
+                              ...homepageSettings,
+                              archiveImages: [...homepageSettings.archiveImages, url]
+                            });
+                          })}
+                        />
+                        <label htmlFor="archive-upload" className="py-4 px-6 border border-editorial-line/10 hover:bg-gray-50 cursor-pointer text-xs uppercase tracking-widest block h-full flex items-center">
+                          Tải lên
+                        </label>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (tempArchiveUrl) {
+                          setHomepageSettings({
+                            ...homepageSettings,
+                            archiveImages: [...homepageSettings.archiveImages, tempArchiveUrl]
+                          });
+                          setTempArchiveUrl("");
+                        }
+                      }}
+                      className="bg-editorial-text text-white py-4 px-8 uppercase text-[10px] tracking-widest font-bold hover:bg-editorial-accent transition-all"
+                    >
+                      Thêm
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-6">
+                  <button
+                    onClick={saveHomepageSettings}
+                    disabled={uploading}
+                    className="bg-editorial-accent text-white py-4 px-12 uppercase text-[10px] tracking-[4px] font-bold hover:bg-editorial-accent/90 transition-all shadow-md disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {uploading && <Loader size={12} className="animate-spin" />}
+                    Lưu Trang Chủ
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
       </main>
 
       <Footer />
+      {cropState && (
+        <ImageCropDialog
+          imageSrc={cropState.src}
+          aspectRatio={cropState.aspect}
+          onCancel={() => setCropState(null)}
+          onComplete={cropState.onComplete}
+        />
+      )}
     </div>
   );
 }

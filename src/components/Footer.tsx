@@ -1,108 +1,162 @@
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Instagram, Facebook, Twitter, Mail, ArrowUp, MapPin, Phone } from "lucide-react";
+import { Instagram, Facebook, Youtube, ArrowUp, Sprout } from "lucide-react";
+import { motion } from "motion/react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "../lib/firebase";
 
 export default function Footer() {
+  const [logoUrl, setLogoUrl] = useState("");
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "homepageSettings"), (docSnap) => {
+      if (docSnap.exists() && docSnap.data().logoImage) {
+        setLogoUrl(docSnap.data().logoImage);
+      } else {
+        setLogoUrl("");
+      }
+    });
+    return () => unsub();
+  }, []);
+
   return (
-    <footer className="bg-[#1a1a1a] text-white pt-32 pb-16 px-6 md:px-[60px] font-sans">
-      <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-20 gap-y-16 mb-24">
-          <div className="lg:col-span-1">
-            <Link to="/" className="inline-block mb-10">
-              <span className="text-3xl font-serif tracking-[6px] uppercase font-bold text-editorial-accent">Tre Việt.</span>
+    <footer className="bg-editorial-bg text-editorial-text border-t border-editorial-line/20 pt-24 pb-12 px-8 md:px-16 font-sans antialiased text-[13px] md:text-[14px]">
+      <div className="max-w-[1400px] mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-8 mb-24">
+          
+          {/* Left Column: Logo & Main Text */}
+          <div className="lg:col-span-3">
+            <Link to="/" className="inline-block mb-10 group flex items-center gap-2">
+              {logoUrl ? (
+                <img src={logoUrl} alt="KC Cook" className="h-[5.5rem] md:h-24 w-auto object-contain group-hover:scale-105 transition-transform duration-500" />
+              ) : (
+                <>
+                  <motion.div
+                    whileHover={{ rotate: 15, scale: 1.1 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                    className="text-editorial-accent"
+                  >
+                    <Sprout size={32} strokeWidth={2} />
+                  </motion.div>
+                  <span className="text-[28px] font-serif font-bold tracking-[4px] uppercase text-editorial-accent group-hover:tracking-[6px] transition-all duration-500">
+                    KC Cook.
+                  </span>
+                </>
+              )}
             </Link>
-            <p className="text-[#888] text-[15px] leading-[1.8] mb-10 max-w-sm font-light">
-              Khám phá tinh hoa kiến trúc từ chất liệu Tre. Chúng tôi kết nối giá trị cộng đồng thông qua những sản phẩm nội thất bền vững và đầy tính bản sắc.
+            <p className="text-editorial-text/80 leading-relaxed mb-6 font-light pe-4">
+              Với hơn 10 năm kinh nghiệm, KC Cook cộng tác cùng khách hàng kiến tạo nên những không gian sống bằng nghệ thuật thủ công tinh xảo, chất liệu bền vững và sự sáng tạo không giới hạn.
             </p>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 text-[#666] text-sm">
-                <MapPin size={16} className="text-editorial-accent" />
-                <span>Số 123, Đường Tre, Hà Nội, Việt Nam</span>
+          </div>
+
+          {/* Spacer */}
+          <div className="hidden lg:block lg:col-span-1"></div>
+
+          {/* Right Columns: Regions / Categories */}
+          <div className="lg:col-span-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+              {/* Column 1 */}
+              <div>
+                <h4 className="text-[10px] uppercase tracking-[1px] text-editorial-text/50 mb-6 font-bold">Nội Thất Khách</h4>
+                <ul className="space-y-4 font-serif text-[17px]">
+                  {["Sofa Mây Tre", "Bàn Coffee", "Kệ Tủ Tivi", "Tủ Trang Trí", "Ghế Bành"].map((item) => (
+                    <li key={item}>
+                      <Link to="/collections" className="group flex items-center">
+                        <motion.span whileHover={{ x: 8 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="inline-block text-editorial-text/80 group-hover:text-editorial-accent">
+                          {item}
+                        </motion.span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <div className="flex items-center gap-3 text-[#666] text-sm">
-                <Phone size={16} className="text-editorial-accent" />
-                <span>+84 (0) 90 123 4567</span>
+
+              {/* Column 2 */}
+              <div>
+                <h4 className="text-[10px] uppercase tracking-[1px] text-editorial-text/50 mb-6 font-bold">Nội Thất Ăn</h4>
+                <ul className="space-y-4 font-serif text-[17px]">
+                  {["Bàn Ăn", "Ghế Ăn"].map((item) => (
+                    <li key={item}>
+                      <Link to="/collections" className="group flex items-center">
+                        <motion.span whileHover={{ x: 8 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="inline-block text-editorial-text/80 group-hover:text-editorial-accent">
+                          {item}
+                        </motion.span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </div>
-          </div>
 
-          <div className="flex flex-col">
-            <h4 className="text-[11px] uppercase tracking-[4px] font-bold mb-10 text-editorial-accent opacity-80">Bộ sưu tập</h4>
-            <ul className="space-y-6 text-[14px]">
-              <li><Link to="/collections" className="text-[#888] hover:text-white transition-colors duration-300">Nội Thất Phòng Khách</Link></li>
-              <li><Link to="/collections" className="text-[#888] hover:text-white transition-colors duration-300">Đèn Trang Trí</Link></li>
-              <li><Link to="/collections" className="text-[#888] hover:text-white transition-colors duration-300">Phụ Kiện Thủ Công</Link></li>
-              <li><Link to="/collections" className="text-[#888] hover:text-white transition-colors duration-300">Tre Kỹ Thuật (Processed)</Link></li>
-            </ul>
-          </div>
+              {/* Column 3 */}
+              <div>
+                <h4 className="text-[10px] uppercase tracking-[1px] text-editorial-text/50 mb-6 font-bold">Đèn Trang Trí</h4>
+                <ul className="space-y-4 font-serif text-[17px]">
+                  {["Đèn Trần", "Đèn Bàn"].map((item) => (
+                    <li key={item}>
+                      <Link to="/collections" className="group flex items-center">
+                        <motion.span whileHover={{ x: 8 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="inline-block text-editorial-text/80 group-hover:text-editorial-accent">
+                          {item}
+                        </motion.span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
-          <div className="flex flex-col">
-            <h4 className="text-[11px] uppercase tracking-[4px] font-bold mb-10 text-editorial-accent opacity-80">Thông tin</h4>
-            <ul className="space-y-6 text-[14px]">
-              <li><a href="/#about" className="text-[#888] hover:text-white transition-colors duration-300">Về Chúng Tôi</a></li>
-              <li><a href="/#process" className="text-[#888] hover:text-white transition-colors duration-300">Quy Trình Crafting</a></li>
-              <li><a href="#" className="text-[#888] hover:text-white transition-colors duration-300">Chuyện Của Tre</a></li>
-              <li><a href="#" className="text-[#888] hover:text-white transition-colors duration-300">Tin Tức & Sự Kiện</a></li>
-            </ul>
-          </div>
-
-          <div className="flex flex-col">
-            <h4 className="text-[11px] uppercase tracking-[4px] font-bold mb-10 text-editorial-accent opacity-80">Newsletter</h4>
-            <p className="text-[14px] text-[#888] mb-8 font-light leading-relaxed">
-              Nhận thông tin về các bộ sưu tập mới nhất và ưu đãi đặc quyền.
-            </p>
-            <form className="relative group">
-              <input 
-                type="email" 
-                placeholder="Địa chỉ Email" 
-                className="bg-transparent border-b border-[#333] py-4 outline-none text-[14px] w-full pr-12 focus:border-editorial-accent transition-all duration-500 placeholder:text-[#333] group-hover:border-[#444]"
-              />
-              <button type="submit" className="absolute right-0 top-1/2 -translate-y-1/2 text-white/40 hover:text-editorial-accent transition-colors">
-                <Mail size={20} />
-              </button>
-            </form>
-            <div className="flex gap-6 mt-12">
-              <a href="#" className="text-[#666] hover:text-white transition-all transform hover:-translate-y-1">
-                <Instagram size={20} />
-              </a>
-              <a href="#" className="text-[#666] hover:text-white transition-all transform hover:-translate-y-1">
-                <Facebook size={20} />
-              </a>
-              <a href="#" className="text-[#666] hover:text-white transition-all transform hover:-translate-y-1">
-                <Twitter size={20} />
-              </a>
+              {/* Column 4 */}
+              <div>
+                <h4 className="text-[10px] uppercase tracking-[1px] text-editorial-text/50 mb-6 font-bold">Follow Us</h4>
+                <ul className="space-y-4 font-serif text-[17px]">
+                  <li>
+                    <a href="#" className="group flex items-center">
+                      <motion.div whileHover={{ x: 8 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="flex items-center gap-2 text-editorial-text/80 group-hover:text-editorial-accent">
+                        <Instagram size={14} /> <span>Instagram</span>
+                      </motion.div>
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="group flex items-center">
+                      <motion.div whileHover={{ x: 8 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="flex items-center gap-2 text-editorial-text/80 group-hover:text-editorial-accent">
+                        <Facebook size={14} /> <span>Facebook</span>
+                      </motion.div>
+                    </a>
+                  </li>
+                  <li>
+                    <a href="#" className="group flex items-center">
+                      <motion.div whileHover={{ x: 8 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="flex items-center gap-2 text-editorial-text/80 group-hover:text-editorial-accent">
+                        <Youtube size={14} /> <span>Youtube</span>
+                      </motion.div>
+                    </a>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row justify-between items-center border-t border-[#333]/30 pt-16 gap-12">
-          <div className="flex flex-col md:flex-row items-center gap-10">
-            <span className="text-[11px] uppercase tracking-[3px] text-[#444]">
-              © 2024 TRE VIỆT INTERIOR
-            </span>
-            <div className="flex gap-10 text-[11px] uppercase tracking-[2px] text-[#444]">
-              <a href="#" className="hover:text-[#888] transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-[#888] transition-colors">Terms of Service</a>
-            </div>
+        {/* Footer Bottom */}
+        <div className="flex flex-col md:flex-row justify-between items-end gap-8 relative border-t border-editorial-line/20 pt-8 mt-12">
+          <div className="text-[10px] uppercase tracking-[1px] text-editorial-text/50 flex flex-wrap gap-x-2 gap-y-4 max-w-4xl">
+            <span>COPYRIGHT © {(new Date()).getFullYear()} KC COOK. ALL RIGHTS RESERVED</span>
+            <span className="hidden md:inline">|</span>
+            <a href="#" className="hover:text-editorial-accent transition-colors">PRIVACY POLICY</a>
+            <span className="hidden md:inline">|</span>
+            <span>THIS SITE IS PROTECTED BY RECAPTCHA AND THE GOOGLE PRIVACY POLICY AND TERMS OF SERVICE APPLY.</span>
+            <span className="hidden md:inline">|</span>
+            <Link to="/admin" className="hover:text-editorial-accent font-bold transition-colors">ADMIN ACCESS</Link>
           </div>
 
-          <div className="flex items-center gap-12">
-            <Link to="/admin" className="text-[11px] uppercase tracking-[3px] text-[#444] hover:text-editorial-accent transition-colors font-bold">
-              Admin Access
-            </Link>
-            <button 
-              onClick={scrollToTop}
-              className="flex items-center gap-4 group"
-            >
-              <span className="text-[11px] uppercase tracking-[3px] text-[#444] group-hover:text-white transition-colors">Back to Top</span>
-              <div className="w-12 h-12 rounded-full border border-[#333] flex items-center justify-center group-hover:border-editorial-accent group-hover:bg-editorial-accent transition-all duration-500">
-                <ArrowUp size={16} className="group-hover:-translate-y-1 transition-transform" />
-              </div>
-            </button>
-          </div>
+          <button 
+            onClick={scrollToTop}
+            className="w-[50px] h-[50px] rounded-full border border-editorial-line/40 flex items-center justify-center hover:bg-editorial-text hover:text-white transition-all duration-300 absolute -bottom-4 right-0"
+            aria-label="Back to top"
+          >
+            <ArrowUp size={20} className="font-light" />
+          </button>
         </div>
       </div>
     </footer>

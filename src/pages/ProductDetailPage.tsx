@@ -35,6 +35,26 @@ export default function ProductDetailPage() {
   const [isZoomed, setIsZoomed] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 0, y: 0 });
 
+  useEffect(() => {
+    if (product) {
+      document.title = `${product.name} | KC Cook`;
+      
+      let metaDescription = document.querySelector('meta[name="description"]');
+      if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+      }
+      metaDescription.setAttribute('content', product.description || `Khám phá ${product.name} cao cấp từ KC Cook chuyên về nội thất mây tre đan.`);
+    } else if (!loading) {
+      document.title = 'Sản phẩm không tìm thấy | KC Cook';
+    }
+    
+    return () => {
+      document.title = 'KC Cook - Tinh hoa bếp Việt';
+    };
+  }, [product, loading]);
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isZoomed) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -160,7 +180,7 @@ export default function ProductDetailPage() {
             {/* Main Image with Zoom */}
             <div className="flex-1 relative">
               <div 
-                className="aspect-[4/5] overflow-hidden bg-editorial-muted/10 relative cursor-crosshair overflow-hidden"
+                className={`aspect-[4/5] bg-editorial-muted/10 relative overflow-hidden ${isZoomed ? 'cursor-none' : 'cursor-crosshair'}`}
                 onMouseEnter={() => setIsZoomed(true)}
                 onMouseLeave={() => setIsZoomed(false)}
                 onMouseMove={handleMouseMove}
@@ -172,12 +192,26 @@ export default function ProductDetailPage() {
                   src={images[activeImage]} 
                   alt={product.name} 
                   loading="lazy"
-                  className={`w-full h-full object-cover transition-transform duration-300 ${isZoomed ? 'scale-150' : 'scale-100'}`}
-                  style={isZoomed ? {
-                    transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`
-                  } : {}}
+                  className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
                 />
+                
+                {isZoomed && (
+                  <div 
+                    className="absolute pointer-events-none rounded-full border border-editorial-line bg-white shadow-xl"
+                    style={{
+                      width: '180px',
+                      height: '180px',
+                      left: `calc(${zoomPos.x}% - 90px)`,
+                      top: `calc(${zoomPos.y}% - 90px)`,
+                      backgroundImage: `url(${images[activeImage]})`,
+                      backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
+                      backgroundSize: '400%',
+                      backgroundRepeat: 'no-repeat',
+                      zIndex: 20
+                    }}
+                  />
+                )}
                 
                 {/* Overlay Badge */}
                 <div className="absolute top-6 left-6 pointer-events-none">
@@ -283,7 +317,7 @@ export default function ProductDetailPage() {
       </main>
 
       {/* Recommended Section (Simplified for now) */}
-      <section className="bg-editorial-muted/5 py-32 px-[60px]">
+      <section className="bg-editorial-muted/5 py-32 px-6 md:px-[60px]">
         <div className="max-w-7xl mx-auto">
           <header className="mb-16 flex justify-between items-end">
              <div>
@@ -299,7 +333,7 @@ export default function ProductDetailPage() {
           </header>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            <p className="col-span-full text-center py-10 font-serif italic opacity-40">Khám phá thêm các thiết kế tuyệt vời khác của Tre Việt.</p>
+            <p className="col-span-full text-center py-10 font-serif italic opacity-40">Khám phá thêm các thiết kế tuyệt vời khác của KC Cook.</p>
           </div>
         </div>
       </section>

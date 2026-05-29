@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
+import { useToast } from "./ToastContext";
 
 export interface Product {
   id: string;
@@ -17,7 +18,7 @@ export interface CartItem extends Product {
 interface CartContextType {
   cart: CartItem[];
   addToCart: (product: Product) => void;
-  removeFromCart: (productId: string) => void;
+  removeFromCart: (productId: string, name?: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   totalItems: number;
@@ -31,6 +32,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const { addToast } = useToast();
 
   const addToCart = (product: Product) => {
     setCart((prevCart) => {
@@ -42,16 +44,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prevCart, { ...product, quantity: 1 }];
     });
-    setIsCartOpen(true); // Automatically open cart when adding item
+    addToast(`Đã thêm "${product.name}" vào giỏ hàng`, 'success');
+    setIsCartOpen(true);
   };
 
-  const removeFromCart = (productId: string) => {
+  const removeFromCart = (productId: string, name?: string) => {
     setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
+    if (name) {
+      addToast(`Đã xóa "${name}" khỏi giỏ hàng`, 'success');
+    }
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
     if (quantity <= 0) {
-      removeFromCart(productId);
+      const item = cart.find(i => i.id === productId);
+      removeFromCart(productId, item?.name);
       return;
     }
     setCart((prevCart) =>
@@ -61,7 +68,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const clearCart = () => setCart([]);
+  const clearCart = () => {
+    setCart([]);
+    addToast('Đã làm trống giỏ hàng', 'success');
+  };
 
   const totalItems = cart.reduce((sum, item) => sum + (isNaN(item.quantity) ? 0 : item.quantity), 0);
 

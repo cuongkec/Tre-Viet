@@ -2,20 +2,38 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, Search, ShoppingBag, X, Sprout } from "lucide-react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "../lib/firebase";
 import { useCart } from "../context/CartContext";
 
 export default function Navbar() {
   const { totalItems, setIsCartOpen } = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [logoUrl, setLogoUrl] = useState("");
+  const [logoLoaded, setLogoLoaded] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
+      setIsMobileMenuOpen(false); // Auto close mobile menu when browsing/scrolling
     };
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Fetch logo
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "homepageSettings"), (docSnap) => {
+      if (docSnap.exists() && docSnap.data().logoImage) {
+        setLogoUrl(docSnap.data().logoImage);
+      } else {
+        setLogoUrl("");
+      }
+      setLogoLoaded(true);
+    });
+    return () => unsub();
   }, []);
 
   // Close mobile menu on route change
@@ -39,16 +57,24 @@ export default function Navbar() {
         }`}
       >
         <Link to="/" className="group flex items-center gap-2">
-          <motion.div
-            whileHover={{ rotate: 15, scale: 1.1 }}
-            transition={{ type: "spring", stiffness: 400, damping: 10 }}
-            className="text-editorial-accent"
-          >
-            <Sprout size={28} strokeWidth={2} />
-          </motion.div>
-          <span className="text-[22px] md:text-[24px] font-serif font-bold tracking-[4px] uppercase text-editorial-accent group-hover:tracking-[6px] transition-all duration-500">
-            Tre Việt.
-          </span>
+          {!logoLoaded ? (
+            <div className="h-12 md:h-16 w-32 animate-pulse bg-editorial-muted/10 rounded-md" />
+          ) : logoUrl ? (
+             <img src={logoUrl} alt="KC Cook" className="h-12 md:h-16 w-auto object-contain group-hover:scale-105 transition-transform duration-500" />
+          ) : (
+            <>
+              <motion.div
+                whileHover={{ rotate: 15, scale: 1.1 }}
+                transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                className="text-editorial-accent"
+              >
+                <Sprout size={28} strokeWidth={2} />
+              </motion.div>
+              <span className="text-[22px] md:text-[24px] font-serif font-bold tracking-[4px] uppercase text-editorial-accent group-hover:tracking-[6px] transition-all duration-500">
+                KC Cook.
+              </span>
+            </>
+          )}
         </Link>
 
         {/* Desktop Menu */}
