@@ -31,6 +31,8 @@ const defaultCollections = [
 export default function Collections() {
   const [collections, setCollections] = useState(defaultCollections);
 
+  const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "settings", "homepageSettings"), (docSnap) => {
       if (docSnap.exists()) {
@@ -42,6 +44,7 @@ export default function Collections() {
           })));
         }
       }
+      setIsLoading(false);
     });
     return () => unsub();
   }, []);
@@ -67,7 +70,15 @@ export default function Collections() {
       </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[20px]">
-        {collections.map((item, index) => (
+        {isLoading 
+          ? Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="flex flex-col gap-4">
+                <div className="aspect-[4/5] bg-editorial-muted/20 animate-pulse rounded-sm" />
+                <div className="h-5 bg-editorial-muted/20 animate-pulse rounded w-2/3" />
+                <div className="h-3 bg-editorial-muted/20 animate-pulse rounded w-1/2" />
+              </div>
+            ))
+          : collections.map((item, index) => (
           <motion.div
             key={index}
             initial={{ opacity: 0, y: 45 }}

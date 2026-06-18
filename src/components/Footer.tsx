@@ -7,6 +7,8 @@ import { db } from "../lib/firebase";
 
 export default function Footer() {
   const [logoUrl, setLogoUrl] = useState("");
+  const [logoLoaded, setLogoLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -16,9 +18,14 @@ export default function Footer() {
     const unsub = onSnapshot(doc(db, "settings", "homepageSettings"), (docSnap) => {
       if (docSnap.exists() && docSnap.data().logoImage) {
         setLogoUrl(docSnap.data().logoImage);
+        setImageError(false);
       } else {
         setLogoUrl("");
       }
+      setLogoLoaded(true);
+    }, (error) => {
+      console.error("Lỗi tải logo từ Firebase ở Footer:", error);
+      setLogoLoaded(true);
     });
     return () => unsub();
   }, []);
@@ -31,8 +38,16 @@ export default function Footer() {
           {/* Left Column: Logo & Main Text */}
           <div className="lg:col-span-3">
             <Link to="/" className="inline-block mb-10 group flex items-center gap-2">
-              {logoUrl ? (
-                <img src={logoUrl} alt="KC Cook" className="h-[5.5rem] md:h-24 w-auto object-contain group-hover:scale-105 transition-transform duration-500" />
+              {!logoLoaded ? (
+                <div className="h-24 w-40 animate-pulse bg-editorial-text/10 rounded-md" />
+              ) : logoUrl && !imageError ? (
+                <img 
+                  src={logoUrl} 
+                  alt="KC Cook" 
+                  className="h-[5.5rem] md:h-24 w-auto object-contain group-hover:scale-105 transition-transform duration-500" 
+                  referrerPolicy="no-referrer"
+                  onError={() => setImageError(true)}
+                />
               ) : (
                 <>
                   <motion.div
@@ -63,7 +78,7 @@ export default function Footer() {
               <div>
                 <h4 className="text-[10px] uppercase tracking-[1px] text-editorial-text/50 mb-6 font-bold">Nội Thất Khách</h4>
                 <ul className="space-y-4 font-serif text-[17px]">
-                  {["Sofa Mây Tre", "Bàn Coffee", "Kệ Tủ Tivi", "Tủ Trang Trí", "Ghế Bành"].map((item) => (
+                  {["Sofa Mây Tre", "Tủ Trang Trí", "Ghế Bành"].map((item) => (
                     <li key={item}>
                       <Link to="/collections" className="group flex items-center">
                         <motion.span whileHover={{ x: 8 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="inline-block text-editorial-text/80 group-hover:text-editorial-accent">
@@ -79,7 +94,7 @@ export default function Footer() {
               <div>
                 <h4 className="text-[10px] uppercase tracking-[1px] text-editorial-text/50 mb-6 font-bold">Nội Thất Ăn</h4>
                 <ul className="space-y-4 font-serif text-[17px]">
-                  {["Bàn Ăn", "Ghế Ăn"].map((item) => (
+                  {["Thớt tre", "Đũa tre"].map((item) => (
                     <li key={item}>
                       <Link to="/collections" className="group flex items-center">
                         <motion.span whileHover={{ x: 8 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="inline-block text-editorial-text/80 group-hover:text-editorial-accent">
@@ -141,7 +156,7 @@ export default function Footer() {
         {/* Footer Bottom */}
         <div className="flex flex-col md:flex-row justify-between items-end gap-8 relative border-t border-editorial-line/20 pt-8 mt-12">
           <div className="text-[10px] uppercase tracking-[1px] text-editorial-text/50 flex flex-wrap gap-x-2 gap-y-4 max-w-4xl">
-            <span>COPYRIGHT © {(new Date()).getFullYear()} KC COOK. ALL RIGHTS RESERVED</span>
+            <span>COPYRIGHT © {(new Date()).getFullYear()} CUONGEMINI. ALL RIGHTS RESERVED</span>
             <span className="hidden md:inline">|</span>
             <a href="#" className="hover:text-editorial-accent transition-colors">PRIVACY POLICY</a>
             <span className="hidden md:inline">|</span>

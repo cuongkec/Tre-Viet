@@ -5,12 +5,12 @@ import {
   ArrowLeft, ShoppingBag, Plus, Minus, 
   ChevronRight, Award, ShieldCheck, Truck 
 } from "lucide-react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, getDocs } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useCart } from "../context/CartContext";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { initialProducts } from "../constants";
+import ProductCard from "../components/ProductCard";
 
 interface Product {
   id: string;
@@ -22,6 +22,8 @@ interface Product {
   category: string;
   material: string;
   description?: string;
+  highlights?: string[];
+  variations?: { name: string; options: string[] }[];
 }
 
 export default function ProductDetailPage() {
@@ -29,6 +31,7 @@ export default function ProductDetailPage() {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
@@ -73,22 +76,43 @@ export default function ProductDetailPage() {
         
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setProduct({ 
+          const loadedProduct = { 
             id: docSnap.id, 
             ...data,
             images: data.images || [data.image]
-          } as Product);
-        } else {
-          // Fallback to initialProducts if not in Firestore
-          const fallbackProduct = initialProducts.find(p => p.id === productId);
-          if (fallbackProduct) {
-            setProduct({
-              ...fallbackProduct,
-              images: (fallbackProduct as any).images || [fallbackProduct.image]
-            } as Product);
-          } else {
-            console.error("Product not found in Firestore or fallback");
+          } as Product;
+          
+          setProduct(loadedProduct);
+
+          // Co-fetch related products
+          try {
+            const q = query(collection(db, "products"));
+            const snapshot = await getDocs(q);
+            const allProducts = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            })) as Product[];
+            
+            // Filter out current product
+            const otherProducts = allProducts.filter(p => p.id !== docSnap.id);
+
+            // Sort: 1) Same category has high weight, 2) same material has secondary weight
+            const sorted = otherProducts.sort((a, b) => {
+              const aSameCat = a.category === loadedProduct.category ? 1 : 0;
+              const bSameCat = b.category === loadedProduct.category ? 1 : 0;
+              if (aSameCat !== bSameCat) return bSameCat - aSameCat;
+
+              const aSameMat = a.material === loadedProduct.material ? 1 : 0;
+              const bSameMat = b.material === loadedProduct.material ? 1 : 0;
+              return bSameMat - aSameMat;
+            });
+
+            setRelatedProducts(sorted.slice(0, 4));
+          } catch (err) {
+            console.error("Error fetching related products:", err);
           }
+        } else {
+          console.error("Product not found in Firestore");
         }
       } catch (error) {
         console.error("Error fetching product:", error);
@@ -316,7 +340,7 @@ export default function ProductDetailPage() {
         </div>
       </main>
 
-      {/* Recommended Section (Simplified for now) */}
+      {/* Recommended Section */}
       <section className="bg-editorial-muted/5 py-32 px-6 md:px-[60px]">
         <div className="max-w-7xl mx-auto">
           <header className="mb-16 flex justify-between items-end">
@@ -333,7 +357,21 @@ export default function ProductDetailPage() {
           </header>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            <p className="col-span-full text-center py-10 font-serif italic opacity-40">Khám phá thêm các thiết kế tuyệt vời khác của KC Cook.</p>
+            {relatedProducts.length > 0 ? (
+              relatedProducts.map((p, index) => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  index={index}
+                  navigate={navigate}
+                  addToCart={addToCart}
+                />
+              ))
+            ) : (
+              <p className="col-span-full text-center py-10 font-serif italic opacity-40">
+                Chưa có sản phẩm liên quan khác. Khám phá thêm các thiết kế tuyệt vời của KC Cook.
+              </p>
+            )}
           </div>
         </div>
       </section>

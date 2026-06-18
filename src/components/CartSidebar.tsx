@@ -180,7 +180,7 @@ export default function CartSidebar() {
                           <Landmark size={20} className={paymentMethod === 'bank' ? 'text-editorial-accent' : ''} />
                           <div className="text-left">
                             <p className="text-xs font-bold uppercase tracking-wider">Chuyển khoản ngân hàng</p>
-                            <p className="text-[10px] opacity-40 mt-1">Techcombank, Vietcombank...</p>
+                            <p className="text-[10px] opacity-40 mt-1">VIETINBANK</p>
                           </div>
                         </button>
                         <button 
@@ -203,16 +203,16 @@ export default function CartSidebar() {
                           <div className="space-y-2">
                              <div className="flex justify-between text-xs">
                                <span className="opacity-40">Ngân hàng:</span>
-                               <span className="font-bold">TECHCOMBANK</span>
+                               <span className="font-bold">VIETINBANK</span>
                              </div>
                              <div className="flex justify-between text-xs">
                                <span className="opacity-40">Chủ tài khoản:</span>
-                               <span className="font-bold uppercase">CÔNG TY KC COOK</span>
+                               <span className="font-bold uppercase">CÔNG TY TNHH KC COOK</span>
                              </div>
                              <div className="flex justify-between items-center text-xs">
                                <span className="opacity-40">Số tài khoản:</span>
                                <div className="flex items-center gap-2">
-                                 <span className="font-bold tracking-wider select-all">1903 4567 8901 234</span>
+                                 <span className="font-bold tracking-wider select-all">110643098368</span>
                                  <button
                                    onClick={() => {
                                      navigator.clipboard.writeText("190345678901234");
@@ -236,7 +236,7 @@ export default function CartSidebar() {
                       ) : (
                         <div className="flex flex-col items-center gap-4">
                            <div className="w-48 h-48 bg-white p-4 border border-editorial-line/10 group relative">
-                              <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=kc-cook-checkout" alt="Payment QR" className="w-full h-full grayscale group-hover:grayscale-0 transition-all duration-700" />
+                              <img src="/qr-code.png" alt="Payment QR" className="w-full h-full object-contain mix-blend-multiply group-hover:opacity-80 transition-all duration-700" />
                               <div className="absolute inset-0 border-[2px] border-editorial-accent opacity-0 group-hover:opacity-100 transition-opacity" />
                            </div>
                            <p className="text-[10px] uppercase tracking-widest opacity-40 text-center">Quét mã để thanh toán ngay</p>

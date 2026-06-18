@@ -10,8 +10,23 @@
         "price": { "type": "string", "description": "Price as formatted string (e.g. 3.200.000đ)" },
         "priceNum": { "type": "number", "description": "Price as number for filtering" },
         "image": { "type": "string", "description": "URL to product image" },
+        "images": { "type": "array", "items": { "type": "string" }, "description": "Additional product images" },
         "category": { "type": "string", "description": "Product category" },
         "material": { "type": "string", "description": "Product material type" },
+        "description": { "type": "string", "description": "Product description" },
+        "highlights": { "type": "array", "items": { "type": "string" }, "description": "Product highlights" },
+        "variations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string", "description": "Variation name (e.g., Size, Color)" },
+              "options": { "type": "array", "items": { "type": "string" }, "description": "Available options" }
+            },
+            "required": ["name", "options"]
+          },
+          "description": "Product variations (e.g., size or color options)"
+        },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },

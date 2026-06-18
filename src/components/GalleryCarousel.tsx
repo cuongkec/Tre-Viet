@@ -23,14 +23,30 @@ export default function GalleryCarousel() {
     setImageLoaded(false);
   }, [currentIndex]);
 
+  // Autoplay feature - transitions every 5 seconds
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const timer = setInterval(() => {
+      setDirection(1);
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [images.length, currentIndex]);
+
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "settings", "homepageSettings"), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.archiveImages && data.archiveImages.length > 0) {
-          setImages(data.archiveImages);
+          setImages([...data.archiveImages]);
           setCurrentIndex(prev => prev < data.archiveImages.length ? prev : 0);
+        } else {
+          setImages([...defaultImages]);
+          setCurrentIndex(0);
         }
+      } else {
+        setImages([...defaultImages]);
+        setCurrentIndex(0);
       }
     });
     return () => unsub();
@@ -96,7 +112,7 @@ export default function GalleryCarousel() {
           </div>
         </div>
 
-        <div className="relative h-[60vh] w-full flex items-center justify-center touch-pan-y">
+        <div key={images.join(',')} className="relative h-[60vh] w-full flex items-center justify-center touch-pan-y">
           <AnimatePresence initial={false} custom={direction}>
             <motion.div
               key={currentIndex}

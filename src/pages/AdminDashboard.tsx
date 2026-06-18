@@ -23,12 +23,14 @@ interface Product {
   name: string;
   price: string;
   priceNum: number;
+  isContactPrice?: boolean;
   image: string;
   images?: string[];
   category: string;
   material: string;
   description?: string;
   highlights?: string[];
+  variations?: { name: string; options: string[] }[];
 }
 
 export default function AdminDashboard() {
@@ -148,12 +150,14 @@ export default function AdminDashboard() {
   const [formData, setFormData] = useState({
     name: "",
     priceNum: 0,
+    isContactPrice: false,
     image: "",
     images: [] as string[],
     category: "Bàn Ghế",
     material: "Handcrafted",
     description: "",
-    highlights: "" // Using string for textarea, will split to array on save
+    highlights: "", // Using string for textarea, will split to array on save
+    variations: [] as { name: string; options: string[] }[]
   });
 
   const standardCategories = ["Bàn Ghế", "Đèn Trang Trí", "Phụ Kiện", "Nội Thất"];
@@ -300,6 +304,22 @@ export default function AdminDashboard() {
     }
   };
 
+  const forceRefreshHomepageSettings = async () => {
+    try {
+      const docSnap = await getDoc(doc(db, "settings", "homepageSettings"));
+      if (docSnap.exists()) {
+        setHomepageSettings(docSnap.data() as any);
+        setStatus({ type: 'success', msg: "Đã làm mới cache từ máy chủ" });
+      } else {
+        setStatus({ type: 'error', msg: "Không tìm thấy dữ liệu trên máy chủ" });
+      }
+      setTimeout(() => setStatus(null), 3000);
+    } catch (e) {
+      console.error(e);
+      setStatus({ type: 'error', msg: "Tải cache thất bại" });
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (uploading) return;
@@ -310,8 +330,8 @@ export default function AdminDashboard() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    if (formData.priceNum <= 0) {
-      setStatus({ type: 'error', msg: "Vui lòng nhập giá sản phẩm hợp lệ" });
+    if (!formData.isContactPrice && formData.priceNum <= 0) {
+      setStatus({ type: 'error', msg: "Vui lòng nhập giá sản phẩm hợp lệ hoặc chọn 'Liên hệ'" });
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -371,14 +391,16 @@ export default function AdminDashboard() {
 
       const productData = {
         name: formData.name.trim(),
-        priceNum: formData.priceNum,
+        priceNum: formData.isContactPrice ? 0 : formData.priceNum,
+        isContactPrice: formData.isContactPrice,
         image: imageUrl || formData.image,
         images: gallery.length > 0 ? gallery : [imageUrl || formData.image],
         category: formData.category,
         material: formData.material,
         description: formData.description.trim(),
         highlights: formData.highlights.split('\n').map(h => h.trim()).filter(h => h !== ""),
-        price: new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(formData.priceNum),
+        variations: formData.variations,
+        price: formData.isContactPrice ? "Liên hệ" : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(formData.priceNum),
         updatedAt: serverTimestamp()
       };
 
@@ -430,12 +452,14 @@ export default function AdminDashboard() {
     setFormData({
       name: product.name,
       priceNum: product.priceNum,
+      isContactPrice: product.isContactPrice || false,
       image: product.image,
       images: product.images || [product.image],
       category: product.category,
       material: product.material,
       description: product.description || "",
-      highlights: (product.highlights || []).join('\n')
+      highlights: (product.highlights || []).join('\n'),
+      variations: product.variations || []
     });
     setIsAdding(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -450,12 +474,14 @@ export default function AdminDashboard() {
     setFormData({
       name: "",
       priceNum: 0,
+      isContactPrice: false,
       image: "",
       images: [] as string[],
       category: "Bàn Ghế",
       material: "Handcrafted",
       description: "",
-      highlights: ""
+      highlights: "",
+      variations: []
     });
   };
 
@@ -633,20 +659,30 @@ export default function AdminDashboard() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] uppercase tracking-[2px] font-bold opacity-40 flex items-center gap-2">
-                          <DollarSign size={12} /> Giá (VNĐ)
+                        <label className="text-[10px] uppercase tracking-[2px] font-bold opacity-40 flex items-center justify-between">
+                          <span className="flex items-center gap-2"><DollarSign size={12} /> Giá (VNĐ)</span>
+                          <label className="flex items-center gap-2 cursor-pointer normal-case tracking-normal">
+                            <input 
+                              type="checkbox"
+                              checked={formData.isContactPrice || false}
+                              onChange={e => setFormData({ ...formData, isContactPrice: e.target.checked })}
+                              className="accent-editorial-accent"
+                            />
+                            <span>Giá Liên hệ</span>
+                          </label>
                         </label>
                         <input 
                           type="number"
-                          required
-                          value={isNaN(formData.priceNum) ? "" : formData.priceNum}
+                          required={!formData.isContactPrice}
+                          disabled={formData.isContactPrice}
+                          value={formData.isContactPrice ? "" : (isNaN(formData.priceNum) ? "" : formData.priceNum)}
                           onChange={e => {
                             const val = e.target.value === "" ? 0 : parseInt(e.target.value);
                             setFormData({ ...formData, priceNum: isNaN(val) ? 0 : val });
                           }}
-                          className="w-full bg-white border border-editorial-line/10 p-4 font-serif outline-none focus:border-editorial-accent transition-colors"
+                          className="w-full bg-white border border-editorial-line/10 p-4 font-serif outline-none focus:border-editorial-accent transition-colors disabled:opacity-50 disabled:bg-gray-50"
                         />
-                        <p className="text-[10px] italic opacity-40">Hiển thị: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(formData.priceNum || 0)}</p>
+                        <p className="text-[10px] italic opacity-40">Hiển thị: {formData.isContactPrice ? "Liên hệ" : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(formData.priceNum || 0)}</p>
                       </div>
 
                       <div className="space-y-4">
@@ -791,6 +827,69 @@ export default function AdminDashboard() {
                             className="w-full bg-white border border-editorial-line/10 p-4 font-serif text-sm outline-none focus:border-editorial-accent transition-colors min-h-[120px]"
                             placeholder="- Độ bền cao&#10;- Chống mối mọt&#10;- Thân thiện môi trường"
                           />
+                        </div>
+                        <div className="space-y-4">
+                          <label className="text-[10px] uppercase tracking-[2px] font-bold opacity-40 flex items-center justify-between">
+                            <span>Biến thể (Kích thước, Màu sắc...)</span>
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, variations: [...(prev.variations || []), { name: "", options: [] }] }))}
+                              className="text-editorial-accent hover:underline flex items-center gap-1"
+                            >
+                              <Plus size={12} /> Thêm biến thể
+                            </button>
+                          </label>
+                          {formData.variations?.map((v, i) => (
+                            <div key={i} className="flex gap-4 items-start bg-white p-4 border border-editorial-line/10">
+                              <div className="flex-1 space-y-3">
+                                <div>
+                                  <label className="text-[9px] uppercase tracking-wider opacity-40 mb-1 block">Tên biến thể</label>
+                                  <input 
+                                    type="text"
+                                    value={v.name}
+                                    onChange={e => {
+                                      const newVariations = [...(formData.variations || [])];
+                                      newVariations[i].name = e.target.value;
+                                      setFormData({...formData, variations: newVariations});
+                                    }}
+                                    placeholder="VD: Kích thước, Màu sắc"
+                                    className="w-full border-b border-editorial-line/20 py-2 text-sm"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[9px] uppercase tracking-wider opacity-40 mb-1 block">Các tùy chọn (cách nhau bằng dấu phẩy)</label>
+                                  <input 
+                                    type="text"
+                                    value={v.options.join(', ')}
+                                    onChange={e => {
+                                      const newVariations = [...(formData.variations || [])];
+                                      // Support spaces after commas by joining back for the visual input but clean array on save
+                                      newVariations[i].options = e.target.value.split(','); // Raw split to allow typing space after comma
+                                      setFormData({...formData, variations: newVariations});
+                                    }}
+                                    onBlur={e => {
+                                      const newVariations = [...(formData.variations || [])];
+                                      newVariations[i].options = e.target.value.split(',').map(s => s.trim()).filter(s => s);
+                                      setFormData({...formData, variations: newVariations});
+                                    }}
+                                    placeholder="VD: S, M, L hoặc Đen, Trắng"
+                                    className="w-full border-b border-editorial-line/20 py-2 text-sm"
+                                  />
+                                </div>
+                              </div>
+                              <button 
+                                type="button"
+                                onClick={() => {
+                                  const newVariations = [...(formData.variations || [])];
+                                  newVariations.splice(i, 1);
+                                  setFormData({...formData, variations: newVariations});
+                                }}
+                                className="text-red-500 hover:text-red-700 p-2"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          ))}
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] uppercase tracking-[2px] font-bold opacity-40">
@@ -1171,6 +1270,7 @@ export default function AdminDashboard() {
                           src={homepageSettings.logoImage} 
                           className="h-full object-contain p-2" 
                           alt="Logo Preview" 
+                          referrerPolicy="no-referrer"
                         />
                       ) : (
                         <span className="text-xs uppercase tracking-widest opacity-30">Chưa có Logo</span>
@@ -1203,7 +1303,7 @@ export default function AdminDashboard() {
                                     ...homepageSettings,
                                     logoImage: url
                                   });
-                                  setStatus({ type: "success", msg: "Tải logo lên thành công" });
+                                  setStatus({ type: "success", msg: "Tải lên thành công! Nhớ bấm 'LƯU TRANG CHỦ' bên dưới." });
                                 }
                               } catch (error) {
                                 setStatus({ type: "error", msg: "Lỗi khi tải logo lên" });
@@ -1453,7 +1553,14 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-6">
+                <div className="flex justify-end gap-4 pt-6">
+                  <button
+                    onClick={forceRefreshHomepageSettings}
+                    disabled={uploading}
+                    className="bg-editorial-line/10 text-editorial-text py-4 px-8 uppercase text-[10px] tracking-[4px] font-bold hover:bg-editorial-line/20 transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
+                  >
+                    Làm Mới Cache
+                  </button>
                   <button
                     onClick={saveHomepageSettings}
                     disabled={uploading}

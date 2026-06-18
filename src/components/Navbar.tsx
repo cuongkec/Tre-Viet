@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, Search, ShoppingBag, X, Sprout } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -12,7 +12,21 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState("");
   const [logoLoaded, setLogoLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/collections?q=${encodeURIComponent(searchQuery.trim())}`);
+      setIsSearchOpen(false);
+      setSearchQuery("");
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -28,10 +42,14 @@ export default function Navbar() {
     const unsub = onSnapshot(doc(db, "settings", "homepageSettings"), (docSnap) => {
       if (docSnap.exists() && docSnap.data().logoImage) {
         setLogoUrl(docSnap.data().logoImage);
+        setImageError(false); // reset error state when url changes
       } else {
         setLogoUrl("");
       }
       setLogoLoaded(true);
+    }, (error) => {
+      console.error("Lỗi khi tải logo từ Firebase:", error);
+      setLogoLoaded(true); // fall back to default
     });
     return () => unsub();
   }, []);
@@ -59,8 +77,14 @@ export default function Navbar() {
         <Link to="/" className="group flex items-center gap-2">
           {!logoLoaded ? (
             <div className="h-12 md:h-16 w-32 animate-pulse bg-editorial-muted/10 rounded-md" />
-          ) : logoUrl ? (
-             <img src={logoUrl} alt="KC Cook" className="h-12 md:h-16 w-auto object-contain group-hover:scale-105 transition-transform duration-500" />
+          ) : logoUrl && !imageError ? (
+             <img 
+               src={logoUrl} 
+               alt="KC Cook" 
+               className="h-12 md:h-16 w-auto object-contain group-hover:scale-105 transition-transform duration-500" 
+               referrerPolicy="no-referrer"
+               onError={() => setImageError(true)}
+             />
           ) : (
             <>
               <motion.div
@@ -95,9 +119,43 @@ export default function Navbar() {
           </a>
           
           <div className="flex items-center gap-6 ml-8">
-            <button className="hover:text-editorial-accent transition-colors duration-300">
-              <Search size={18} strokeWidth={1.5} />
-            </button>
+            <div className="relative flex items-center">
+              <AnimatePresence>
+                {isSearchOpen && (
+                  <motion.form 
+                    initial={{ width: 0, opacity: 0 }}
+                    animate={{ width: 200, opacity: 1 }}
+                    exit={{ width: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: "easeInOut" }}
+                    onSubmit={handleSearchSubmit}
+                    className="absolute right-8 mr-2 overflow-hidden flex items-center bg-white/90 backdrop-blur-sm rounded-full border border-editorial-line/20 px-3 py-1 shadow-sm"
+                  >
+                    <input 
+                      ref={searchInputRef}
+                      type="text" 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Tìm kiếm..." 
+                      className="w-full bg-transparent outline-none text-[11px] uppercase tracking-[1px] font-medium placeholder:font-light"
+                    />
+                    <button type="button" onClick={() => setIsSearchOpen(false)} className="ml-2 opacity-50 hover:opacity-100">
+                      <X size={14} />
+                    </button>
+                  </motion.form>
+                )}
+              </AnimatePresence>
+              <button 
+                onClick={() => {
+                  setIsSearchOpen(!isSearchOpen);
+                  if (!isSearchOpen) {
+                    setTimeout(() => searchInputRef.current?.focus(), 100);
+                  }
+                }}
+                className="hover:text-editorial-accent transition-colors duration-300 z-10 p-1"
+              >
+                <Search size={18} strokeWidth={1.5} />
+              </button>
+            </div>
             <button 
               onClick={() => setIsCartOpen(true)}
               className="hover:text-editorial-accent transition-colors duration-300 relative group"

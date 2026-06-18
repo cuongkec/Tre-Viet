@@ -1,68 +1,209 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "motion/react";
-import { Search, Filter, ArrowRight, X, ChevronDown, Eye } from "lucide-react";
+import { Search, Filter, ArrowRight, X, ChevronDown, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import Fuse from "fuse.js";
-import { collection, query, onSnapshot } from "firebase/firestore";
+import { collection, query, onSnapshot, getDocs } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useCart } from "../context/CartContext";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import QuickViewModal from "../components/QuickViewModal";
-import { initialProducts } from "../constants";
+import ProductCard from "../components/ProductCard";
+import ProductSkeleton from "../components/ProductSkeleton";
 
 export default function CollectionsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { addToCart } = useCart();
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [materials, setMaterials] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>(["Tất cả", "Seating", "Lighting", "Decor", "Furniture"]);
+  const [materials, setMaterials] = useState<string[]>(["Tất cả", "Natural", "Handcrafted", "Processed"]);
   const [activeCategory, setActiveCategory] = useState("Tất cả");
   const [activePriceRange, setActivePriceRange] = useState("Tất cả");
   const [activeMaterial, setActiveMaterial] = useState("Tất cả");
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const q = params.get("q");
+    if (q) {
+      setSearchQuery(q);
+      // Optional: clean up URL after reading so it doesn't stay indefinitely if they clear the search,
+      // but usually it's fine to keep it or let user clear via X.
+    }
+  }, [location.search]);
+
   const [sortBy, setSortBy] = useState<'newest' | 'price-asc' | 'price-desc'>('newest');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [selectedQuickViewProduct, setSelectedQuickViewProduct] = useState<any | null>(null);
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
+  // Slider refs & dragging state
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const scrollLeftRef = useRef(0);
+
+  // Helper to merge and sort products cleanly
+  const mergeAndSortProducts = (fetched: any[]) => {
+    const merged = [...fetched];
+
+    merged.sort((a, b) => {
+      const dateA = a.createdAt?.seconds || a.created_at?.seconds || 
+                    (a.createdAt ? new Date(a.createdAt).getTime() / 1000 : 0) || 0;
+      const dateB = b.createdAt?.seconds || b.created_at?.seconds || 
+                    (b.createdAt ? new Date(b.createdAt).getTime() / 1000 : 0) || 0;
+      
+      return dateB - dateA;       // Newest first (descending order of date)
+    });
+
+    return merged;
+  };
+
+  // Compute category product counts dynamically
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    counts["Tất cả"] = products.length;
+    products.forEach(p => {
+      if (p.category) {
+        counts[p.category] = (counts[p.category] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [products]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!sliderRef.current) return;
+    isDraggingRef.current = true;
+    startXRef.current = e.pageX - sliderRef.current.offsetLeft;
+    scrollLeftRef.current = sliderRef.current.scrollLeft;
+  };
+
+  const handleMouseLeave = () => {
+    isDraggingRef.current = false;
+  };
+
+  const handleMouseUp = () => {
+    isDraggingRef.current = false;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingRef.current || !sliderRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - sliderRef.current.offsetLeft;
+    const walk = (x - startXRef.current) * 1.5;
+    sliderRef.current.scrollLeft = scrollLeftRef.current - walk;
+  };
+
+  // Center selected category beautifully with a smooth auto-scroll transition
+  const handleCategoryClick = (cat: string) => {
+    setActiveCategory(cat);
+    setTimeout(() => {
+      const slider = sliderRef.current;
+      if (!slider) return;
+      const button = slider.querySelector(`[data-category="${cat}"]`) as HTMLElement;
+      if (button) {
+        const sliderWidth = slider.clientWidth;
+        const buttonWidth = button.clientWidth;
+        const buttonLeft = button.offsetLeft;
+        const scrollTarget = buttonLeft - (sliderWidth / 2) + (buttonWidth / 2);
+        slider.scrollTo({
+          left: scrollTarget,
+          behavior: 'smooth'
+        });
+      }
+    }, 50);
+  };
+
+  // Load and subscribe to product settings
   useEffect(() => {
-    const q = query(collection(db, "products"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        const fetchedProducts = snapshot.docs.map(doc => ({
+    let isMounted = true;
+    
+    // 1. Immediate Quick Load
+    const quickLoad = async () => {
+      try {
+        const q = query(collection(db, "products"));
+        const snapshot = await getDocs(q);
+        if (!isMounted) return;
+        
+        const fetched = snapshot.docs.map(doc => ({
           ...doc.data(),
           id: doc.id
         })) as any[];
-        setProducts(fetchedProducts);
-      } else {
-        setProducts([]);
+        
+        const merged = mergeAndSortProducts(fetched);
+        setProducts(merged);
+        setIsLoading(false);
+      } catch (err) {
+        console.error("Lỗi getDocs khi tải nhanh:", err);
       }
+    };
+    
+    quickLoad();
+
+    // 2. Real-time Subscription Listener
+    const q = query(collection(db, "products"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!isMounted) return;
+      
+      const fetched = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      })) as any[];
+      
+      const merged = mergeAndSortProducts(fetched);
+      setProducts(merged);
       setIsLoading(false);
-    });
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    const qCat = query(collection(db, "categories"));
-    const unsubCat = onSnapshot(qCat, (snapshot) => {
-      const dbCats = snapshot.docs.map(doc => doc.data().name);
-      const uniqueCats = Array.from(new Set(["Tất cả", "Bàn Ghế", "Đèn Trang Trí", "Phụ Kiện", "Nội Thất", ...dbCats]));
-      setCategories(uniqueCats);
-    });
-
-    const qMat = query(collection(db, "materials"));
-    const unsubMat = onSnapshot(qMat, (snapshot) => {
-      const dbMats = snapshot.docs.map(doc => doc.data().name);
-      const uniqueMats = Array.from(new Set(["Tất cả", "Natural", "Handcrafted", "Processed", ...dbMats]));
-      setMaterials(uniqueMats);
+    }, (error) => {
+      console.error("Lỗi onSnapshot tải bộ sưu tập:", error);
+      if (isMounted) {
+        setProducts(prev => prev.length > 0 ? prev : []);
+        setIsLoading(false);
+      }
     });
 
     return () => {
-      unsubCat();
-      unsubMat();
+      isMounted = false;
+      unsubscribe();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch collections and materials metadata from Firestore
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchMetadata = async () => {
+      try {
+        const qCat = query(collection(db, "categories"));
+        const catSnap = await getDocs(qCat);
+        if (isMounted) {
+          const dbCats = catSnap.docs.map(doc => doc.data().name);
+          setCategories(Array.from(new Set(["Tất cả", "Seating", "Lighting", "Decor", "Furniture", ...dbCats])));
+        }
+      } catch (error) {
+        console.error("Lỗi khi tải danh mục từ Firebase:", error);
+      }
+
+      try {
+        const qMat = query(collection(db, "materials"));
+        const matSnap = await getDocs(qMat);
+        if (isMounted) {
+          const dbMats = matSnap.docs.map(doc => doc.data().name);
+          setMaterials(Array.from(new Set(["Tất cả", "Natural", "Handcrafted", "Processed", ...dbMats])));
+        }
+      } catch (error) {
+        console.error("Lỗi khi tải chất liệu từ Firebase:", error);
+      }
+    };
+
+    fetchMetadata();
+    
+    return () => {
+      isMounted = false;
     };
   }, []);
 
@@ -99,8 +240,14 @@ export default function CollectionsPage() {
     // Apply sorting
     if (sortBy === 'newest') {
       result = [...result].sort((a, b) => {
-        const dateA = (a as any).createdAt?.seconds || (a as any).createdAt?.toMillis?.() || new Date((a as any).createdAt || 0).getTime() || 0;
-        const dateB = (b as any).createdAt?.seconds || (b as any).createdAt?.toMillis?.() || new Date((b as any).createdAt || 0).getTime() || 0;
+        const dateA = a.createdAt?.seconds || a.created_at?.seconds || 
+                      (a.createdAt ? new Date(a.createdAt).getTime() / 1000 : 0) || 0;
+        const dateB = b.createdAt?.seconds || b.created_at?.seconds || 
+                      (b.createdAt ? new Date(b.createdAt).getTime() / 1000 : 0) || 0;
+        
+        if (dateA === 0 && dateB === 0) return 0;
+        if (dateA === 0) return 1;
+        if (dateB === 0) return -1;
         return dateB - dateA;
       });
     } else if (sortBy === 'price-asc') {
@@ -159,27 +306,107 @@ export default function CollectionsPage() {
         </header>
 
         {/* Toolbar */}
-        <div className="max-w-7xl mx-auto mb-16 space-y-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-8 border-y border-editorial-line/10 py-8">
-            <div className="flex gap-8 items-center text-[11px] uppercase tracking-[2px] font-bold opacity-60">
+        <div className="max-w-7xl mx-auto mb-16 space-y-8">
+          {/* Elegant Category Slider Track */}
+          <div className="border-b border-editorial-line/10 pb-8">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-[10px] uppercase tracking-[3px] font-bold text-editorial-text opacity-70 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-editorial-accent rounded-full animate-pulse" />
+                CÁC BỘ SƯU TẬP / COLLECTIONS
+              </h2>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => {
+                    if (sliderRef.current) {
+                      sliderRef.current.scrollBy({ left: -220, behavior: 'smooth' });
+                    }
+                  }}
+                  className="w-8 h-8 rounded-full border border-editorial-line/20 flex items-center justify-center text-editorial-text hover:border-editorial-accent hover:text-editorial-accent hover:bg-gray-50 transition-all duration-300"
+                  aria-label="Previous Category"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button 
+                  onClick={() => {
+                    if (sliderRef.current) {
+                      sliderRef.current.scrollBy({ left: 220, behavior: 'smooth' });
+                    }
+                  }}
+                  className="w-8 h-8 rounded-full border border-editorial-line/20 flex items-center justify-center text-editorial-text hover:border-editorial-accent hover:text-editorial-accent hover:bg-gray-50 transition-all duration-300"
+                  aria-label="Next Category"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Slider track with custom elements */}
+            <div 
+              ref={sliderRef}
+              onMouseDown={handleMouseDown}
+              onMouseLeave={handleMouseLeave}
+              onMouseUp={handleMouseUp}
+              onMouseMove={handleMouseMove}
+              className="flex gap-4 overflow-x-auto pb-4 pt-1 px-1 scroll-smooth scrollbar-hide cursor-grab active:cursor-grabbing select-none"
+            >
+              {categories.map((cat, idx) => {
+                const count = categoryCounts[cat] || 0;
+                const isActive = activeCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    data-category={cat}
+                    onClick={() => handleCategoryClick(cat)}
+                    className={`flex-shrink-0 relative group transition-all duration-300 rounded-[3px] text-left p-4 md:p-5 border ${
+                      isActive 
+                        ? 'border-editorial-accent bg-editorial-accent/5 shadow-sm md:w-[180px] w-[140px]' 
+                        : 'border-editorial-line/10 hover:border-editorial-accent/30 bg-white hover:bg-gray-50/50 md:w-[180px] w-[140px]'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-3 md:mb-4">
+                      <span className="font-mono text-[9px] opacity-35 select-none">
+                        {(idx + 1).toString().padStart(2, '0')}
+                      </span>
+                      <span className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-bold transition-all ${
+                        isActive 
+                          ? 'bg-editorial-accent text-white' 
+                          : 'bg-editorial-text/5 text-editorial-text opacity-40 group-hover:opacity-75'
+                      }`}>
+                        {count}
+                      </span>
+                    </div>
+                    <span className={`block font-serif text-xs md:text-sm font-medium tracking-tight pr-2 transition-all ${
+                      isActive ? 'text-editorial-accent font-bold scale-[1.01]' : 'text-editorial-text group-hover:text-editorial-accent'
+                    }`}>
+                      {cat}
+                    </span>
+                    {/* Visual indicator bar */}
+                    <span className={`absolute bottom-0 left-0 h-[2px] transition-all duration-300 ${
+                      isActive ? 'w-full bg-editorial-accent' : 'w-0 group-hover:w-1/3 bg-editorial-accent/30'
+                    }`} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Additional Tool Actions (Sort & Advanced Filter Controls) */}
+          <div className="flex flex-col md:flex-row justify-between items-center gap-8 py-4 border-b border-editorial-line/10">
+            <div className="flex gap-4 items-center text-[11px] uppercase tracking-[2px] font-bold opacity-70 w-full md:w-auto">
               <button 
                 onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
                 className={`flex items-center gap-2 hover:text-editorial-accent transition-colors ${isFilterMenuOpen ? 'text-editorial-accent opacity-100' : ''}`}
               >
-                <Filter size={14} /> {isFilterMenuOpen ? 'Đóng bộ lọc' : 'Lọc sản phẩm'}
+                <Filter size={14} /> {isFilterMenuOpen ? 'Đóng bộ lọc nâng cao' : 'Bộ lọc nâng cao'}
               </button>
-              <div className="hidden sm:block w-px h-4 bg-editorial-line/20" />
-              <div className="hidden sm:flex gap-6 overflow-x-auto pb-2 scrollbar-hide">
-                {categories.map((cat) => (
-                  <button 
-                    key={cat}
-                    onClick={() => setActiveCategory(cat)}
-                    className={`transition-colors hover:text-editorial-accent whitespace-nowrap ${activeCategory === cat ? 'text-editorial-accent opacity-100' : ''}`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
+              {activeCategory !== "Tất cả" && (
+                <>
+                  <div className="w-px h-4 bg-editorial-line/20" />
+                  <span className="text-[10px] normal-case tracking-normal opacity-50 font-normal">
+                    Đang lọc: <strong className="font-bold text-editorial-accent uppercase tracking-wider text-[9px]">{activeCategory}</strong>
+                  </span>
+                </>
+              )}
             </div>
             
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-6 w-full md:w-auto">
@@ -293,7 +520,7 @@ export default function CollectionsPage() {
             )}
             {activeMaterial !== "Tất cả" && (
               <span className="bg-editorial-accent/10 px-3 py-1 text-[10px] font-medium border border-editorial-accent/20 flex items-center gap-2">
-                {activeMaterial} <X size={10} className="cursor-pointer" onClick={() => setActiveMaterial("Tất cả")} />
+                {activeMaterial === "Natural" ? "Tre Tự Nhiên" : activeMaterial === "Handcrafted" ? "Thủ Công" : activeMaterial === "Processed" ? "Tre Kỹ Thuật" : activeMaterial} <X size={10} className="cursor-pointer" onClick={() => setActiveMaterial("Tất cả")} />
               </span>
             )}
             {searchQuery && (
@@ -318,9 +545,9 @@ export default function CollectionsPage() {
         {/* Grid */}
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-16">
           {isLoading ? (
-            <div className="col-span-full py-20 text-center">
-              <p className="font-serif italic text-xl opacity-40 text-editorial-text">Đang tải bộ sưu tập...</p>
-            </div>
+            Array.from({ length: 8 }).map((_, i) => (
+              <ProductSkeleton key={i} index={i} />
+            ))
           ) : filteredProducts.length > 0 ? (
             filteredProducts.map((product, index) => (
               <ProductCard
@@ -335,40 +562,38 @@ export default function CollectionsPage() {
                 }}
                 onImageClick={() => setLightboxImage(product.image)}
               />
-          ))
-        ) : (
-          <div className="col-span-full py-20 text-center border border-dashed border-editorial-line/20">
-            <p className="font-serif italic text-xl opacity-40 text-editorial-text">Không tìm thấy sản phẩm phù hợp với bộ lọc của bạn.</p>
-            <button 
-              onClick={() => {
-                setActiveCategory("Tất cả");
-                setActivePriceRange("Tất cả");
-                setActiveMaterial("Tất cả");
-                setSearchQuery("");
-              }}
-              className="mt-6 text-[10px] uppercase tracking-[3px] font-bold text-editorial-accent hover:underline"
-            >
-              Cài đặt lại toàn bộ lọc
-            </button>
-          </div>
-        )}
+            ))
+          ) : (
+            <div className="col-span-full py-20 text-center border border-dashed border-editorial-line/20">
+              <p className="font-serif italic text-xl opacity-40 text-editorial-text">Không tìm thấy sản phẩm phù hợp với bộ lọc của bạn.</p>
+              <button 
+                onClick={() => {
+                  setActiveCategory("Tất cả");
+                  setActivePriceRange("Tất cả");
+                  setActiveMaterial("Tất cả");
+                  setSearchQuery("");
+                }}
+                className="mt-6 text-[10px] uppercase tracking-[3px] font-bold text-editorial-accent hover:underline"
+              >
+                Cài đặt lại toàn bộ lọc
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Pagination/Load More */}
         <div className="max-w-7xl mx-auto mt-32 text-center">
-            <motion.button 
-              whileHover={{ 
-                scale: 1.02,
-                borderColor: "var(--editorial-accent)",
-                color: "var(--editorial-accent)"
-              }}
-              whileTap={{ scale: 0.98 }}
-              className="px-12 py-5 border border-editorial-text text-[12px] uppercase tracking-[4px] font-bold transition-all flex items-center gap-4 mx-auto group relative overflow-hidden"
-            >
-              <span className="relative z-10 transition-colors duration-500 group-hover:text-white">Xem thêm sản phẩm</span>
-              <ArrowRight size={16} className="relative z-10 group-hover:translate-x-2 transition-all duration-500 group-hover:text-white" />
-              <div className="absolute inset-x-0 bottom-0 h-0 bg-editorial-text -z-0 group-hover:h-full transition-all duration-500 ease-in-out" />
-            </motion.button>
+          <motion.button 
+            whileHover={{ 
+              scale: 1.02
+            }}
+            whileTap={{ scale: 0.98 }}
+            className="px-12 py-5 border border-editorial-text text-[12px] uppercase tracking-[4px] font-bold transition-all flex items-center gap-4 mx-auto group relative overflow-hidden"
+          >
+            <span className="relative z-10 transition-colors duration-500 group-hover:text-white">Xem thêm sản phẩm</span>
+            <ArrowRight size={16} className="relative z-10 group-hover:translate-x-2 transition-all duration-500 group-hover:text-white" />
+            <div className="absolute inset-x-0 bottom-0 h-0 bg-editorial-text -z-0 group-hover:h-full transition-all duration-500 ease-in-out" />
+          </motion.button>
         </div>
       </main>
 
@@ -404,46 +629,21 @@ export default function CollectionsPage() {
               </button>
             </div>
 
-            {/* Premium Panning Area */}
+            {/* Standard Image Area */}
             <div 
-              className="relative w-[90vw] h-[70vh] md:w-[80vw] md:h-[75vh] overflow-hidden bg-zinc-950/40 border border-white/10 rounded-[6px] cursor-grab active:cursor-grabbing flex items-center justify-center"
+              className="relative w-[90vw] h-[70vh] md:w-[80vw] md:h-[75vh] flex items-center justify-center p-4"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-              
-              <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-[4px] text-[10px] text-white/90 font-mono flex items-center gap-2 z-10 pointer-events-none shadow-lg">
-                <span className="w-2h-2 bg-emerald-500 rounded-full animate-pulse" style={{ width: '8px', height: '8px' }} />
-                <span>PHÓNG ĐẠI CHUYÊN SÂU: 2.5X VÂN TRE BIỂU MẪU</span>
-              </div>
-
-              {/* High-Res Drag/Pan image */}
-              <motion.div
-                drag
-                dragConstraints={{ left: -500, right: 500, top: -350, bottom: 350 }}
-                dragElastic={0.08}
-                dragMomentum={true}
-                className="w-full h-full flex items-center justify-center pointer-events-auto"
-              >
-                <motion.img 
-                  initial={{ scale: 1.2, opacity: 0 }}
-                  animate={{ scale: 2.5, opacity: 1 }}
-                  exit={{ scale: 1.2, opacity: 0 }}
-                  transition={{ duration: 0.4 }}
-                  src={lightboxImage} 
-                  alt="Craftsmanship High detail" 
-                  className="w-[120%] h-[120%] object-contain select-none pointer-events-none pointer-zoom grayscale-[10%]"
-                  referrerPolicy="no-referrer"
-                />
-              </motion.div>
-            </div>
-
-            {/* Extra guide label at bottom */}
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white/[0.06] backdrop-blur-md border border-white/10 px-5 py-2.5 rounded-full text-white/70 text-[10px] uppercase tracking-[2px] font-medium flex items-center gap-3 shadow-2xl pointer-events-none">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="animate-bounce">
-                <path d="M5 10l7-7 7 7"/>
-                <path d="M12 3v18"/>
-              </svg>
-              <span>Giữ chuột và kéo để soi chi tiết sợi xơ gỗ, khớp nối tre cao cấp</span>
+              <motion.img 
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                transition={{ duration: 0.4 }}
+                src={lightboxImage} 
+                alt="Product Full View" 
+                className="max-w-full max-h-full object-contain shadow-2xl rounded-sm"
+                referrerPolicy="no-referrer"
+              />
             </div>
           </motion.div>
         )}
@@ -452,251 +652,4 @@ export default function CollectionsPage() {
   );
 }
 
-function ProductCard({ product, index, navigate, addToCart, onQuickView, onImageClick }: any) {
-  const [isHovered, setIsHovered] = useState(false);
-  const [isPortrait, setIsPortrait] = useState(true);
-  const [coords, setCoords] = useState({ x: 0, y: 0, pctX: 0, pctY: 0 });
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
 
-  const isNew = useMemo(() => {
-    if (!product.createdAt) return false;
-    const createdAtTime = product.createdAt?.seconds ? product.createdAt.seconds * 1000 : (product.createdAt?.toMillis?.() || new Date(product.createdAt).getTime());
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    return createdAtTime > sevenDaysAgo;
-  }, [product.createdAt]);
-
-  const mouseXSpring = useSpring(x, { stiffness: 150, damping: 15 });
-  const mouseYSpring = useSpring(y, { stiffness: 150, damping: 15 });
-
-  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["7deg", "-7deg"]);
-  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-7deg", "7deg"]);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    const xPct = mouseX / width - 0.5;
-    const yPct = mouseY / height - 0.5;
-    x.set(xPct);
-    y.set(yPct);
-
-    setCoords({
-      x: mouseX,
-      y: mouseY,
-      pctX: mouseX / width,
-      pctY: mouseY / height
-    });
-  };
-
-  const handleMouseLeave = () => {
-    x.set(0);
-    y.set(0);
-    setIsHovered(false);
-  };
-  
-  const handleMouseEnter = () => {
-    setIsHovered(true);
-  };
-
-  const activeImage = isHovered && product.images && product.images.length > 1 ? product.images[1] : product.image;
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-50px" }}
-      transition={{ 
-        duration: 0.8, 
-        delay: (index % 4) * 0.1,
-        ease: [0.215, 0.61, 0.355, 1] 
-      }}
-      className="group"
-    >
-      <motion.div 
-        onMouseEnter={handleMouseEnter}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        className={`${isPortrait ? "aspect-[3/4]" : "aspect-[4/3]"} overflow-hidden bg-editorial-muted/10 mb-6 relative group/btn transition-[shadow,border-radius,aspect-ratio] duration-500 hover:shadow-2xl cursor-pointer`}
-        onClick={() => navigate(`/product/${product.id}`)}
-        style={{ perspective: 1200 }}
-        animate={{
-          borderRadius: isHovered ? "16px" : "0px",
-          scale: isHovered ? 1.02 : 1,
-          boxShadow: isHovered 
-            ? "0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0px 30px 5px rgba(139, 92, 26, 0.2)" 
-            : "0 0px 0px 0px rgba(139, 92, 26, 0)",
-        }}
-        transition={{ type: "spring", stiffness: 300, damping: 25 }}
-      >
-        {/* Subtle, thin colored border that fades in on hover */}
-        <div 
-          className="absolute inset-0 border border-editorial-accent/40 pointer-events-none transition-all duration-500 opacity-0 group-hover/btn:opacity-100 z-30"
-          style={{ borderRadius: isHovered ? "16px" : "0px" }}
-        />
-
-        <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 items-start pointer-events-none">
-          {isNew && (
-             <div className="bg-editorial-accent text-white px-2 py-1 rounded-[2px] text-[9px] uppercase font-bold tracking-[2px] shadow-sm whitespace-nowrap">
-                NEW
-             </div>
-          )}
-          <motion.div 
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: isHovered ? 1 : 0, x: isHovered ? 0 : -10 }}
-            transition={{ duration: 0.3 }}
-            className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-[4px] shadow-sm border border-editorial-line/10 whitespace-nowrap"
-          >
-            <span className="text-[10px] uppercase font-bold tracking-[2px] text-editorial-text">{product.material}</span>
-          </motion.div>
-        </div>
-
-        {/* Small, semi-transparent label that overlays on the corner showing the product's primary material when hovered */}
-        <div className="absolute bottom-20 left-4 z-20 pointer-events-none transition-all duration-300 opacity-0 group-hover/btn:opacity-100 bg-white/80 backdrop-blur-md border border-editorial-line/15 text-editorial-text text-[9px] uppercase font-semibold tracking-[2px] px-2.5 py-1 rounded-[2px] shadow-sm">
-          {product.material || "Tre Tự Nhiên"}
-        </div>
-
-        <div className="relative w-full h-full">
-          <motion.img
-            src={product.image}
-            alt={product.name}
-            loading="lazy"
-            onClick={(e) => { e.stopPropagation(); onImageClick(); }}
-            className={`product-card-image w-full h-full object-cover transition-all duration-700 grayscale-[20%] brightness-95 group-hover:grayscale-0 group-hover:brightness-100 ${
-              isHovered && product.images && product.images.length > 1 ? "opacity-0" : "opacity-100"
-            }`}
-            referrerPolicy="no-referrer"
-            style={{ rotateX, rotateY }}
-            animate={isHovered ? {
-              scale: 1.05,
-              translateZ: 40,
-            } : isNew ? {
-              scale: [1, 1.015, 1],
-              opacity: [0.93, 1, 0.93],
-            } : {
-              scale: 1,
-              translateZ: 0
-            }}
-            transition={isHovered ? {
-              type: "spring",
-              stiffness: 250,
-              damping: 25
-            } : isNew ? {
-              duration: 3,
-              repeat: Infinity,
-              ease: "easeInOut"
-            } : {
-              duration: 0.3
-            }}
-          />
-          {product.images && product.images.length > 1 && (
-            <motion.img
-              src={product.images[1]}
-              alt={product.name}
-              loading="lazy"
-              onClick={(e) => { e.stopPropagation(); onImageClick(); }}
-              className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-700 pointer-events-none ${
-                isHovered ? "opacity-100" : "opacity-0"
-              }`}
-              referrerPolicy="no-referrer"
-              style={{ rotateX, rotateY }}
-              animate={isHovered ? {
-                scale: 1.05,
-                translateZ: 40,
-              } : { 
-                scale: 1,
-                translateZ: 0
-              }}
-              transition={{ type: "spring", stiffness: 250, damping: 25 }}
-            />
-          )}
-
-          {/* Interactive Magnifying Glass */}
-          {isHovered && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="absolute pointer-events-none w-36 h-36 rounded-full border-2 border-white/90 shadow-2xl z-30 overflow-hidden hidden md:block"
-              style={{
-                left: coords.x - 72,
-                top: coords.y - 72,
-                backgroundImage: `url(${activeImage})`,
-                backgroundPosition: `${coords.pctX * 100}% ${coords.pctY * 100}%`,
-                backgroundSize: "250%",
-                backgroundRepeat: "no-repeat",
-                boxShadow: "0 0 15px rgba(0,0,0,0.35), inset 0 0 15px rgba(0,0,0,0.25)"
-              }}
-            />
-          )}
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none flex flex-col justify-end p-6 z-10 pb-20">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 10 }}
-            transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
-          >
-            <h3 className="text-white font-serif text-[24px] mb-1">{product.name}</h3>
-            <p className="text-white/90 font-light text-[15px]">{product.price}</p>
-          </motion.div>
-        </div>
-        
-        {/* Aspect Ratio Toggle Control */}
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsPortrait(!isPortrait);
-          }}
-          className="absolute top-4 right-16 p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 hover:bg-white hover:text-editorial-accent z-35 flex items-center justify-center text-editorial-text"
-          title={isPortrait ? "Chuyển sang khung ngang (Landscape)" : "Chuyển sang khung dọc (Portrait)"}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform duration-300 group-hover:scale-110">
-            {isPortrait ? (
-              <rect x="3" y="6" width="18" height="12" rx="2" />
-            ) : (
-              <rect x="6" y="3" width="12" height="18" rx="2" />
-            )}
-          </svg>
-        </button>
-
-        {/* Quick View Trigger */}
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            onQuickView();
-          }}
-          className="absolute top-4 right-4 p-3 bg-white/90 backdrop-blur-sm rounded-full shadow-lg opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 hover:bg-white hover:text-editorial-accent z-20"
-          title="Xem nhanh"
-        >
-          <Eye size={18} />
-        </button>
-
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            addToCart(product);
-          }}
-          className="absolute bottom-0 left-0 w-full bg-editorial-text text-white py-5 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 ease-out text-[10px] uppercase tracking-[3px] font-bold z-10 hover:bg-editorial-accent"
-        >
-          Thêm vào giỏ hàng
-        </button>
-      </motion.div>
-      <div 
-        onClick={() => navigate(`/product/${product.id}`)}
-        className="flex justify-between items-start cursor-pointer"
-      >
-        <div>
-          <h3 className="font-serif text-[18px] group-hover:text-editorial-accent transition-colors mb-1">
-            {product.name}
-          </h3>
-          <p className="text-[10px] uppercase tracking-[2px] opacity-40">{product.category}</p>
-        </div>
-        <span className="text-[14px] font-light">{product.price}</span>
-      </div>
-    </motion.div>
-  );
-}

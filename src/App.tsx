@@ -8,6 +8,7 @@ import { CartProvider } from "./context/CartContext";
 import { ToastProvider } from "./context/ToastContext";
 import CartSidebar from "./components/CartSidebar";
 import ChatWidget from "./components/ChatWidget";
+import ScrollProgress from "./components/ScrollProgress";
 import HomePage from "./pages/HomePage";
 import CollectionsPage from "./pages/CollectionsPage";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -16,6 +17,7 @@ import ProductDetailPage from "./pages/ProductDetailPage";
 export default function App() {
   return (
     <Router>
+      <ScrollProgress />
       <ToastProvider>
         <CartProvider>
           <CartSidebar />
