@@ -14,7 +14,8 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.token.email == "admin@sevenam.com.vn"
+        request.auth.token.email == "admin@sevenam.com.vn" ||
+        request.auth.token.email == "cuongemini@gmail.com"
       );
     }
 
@@ -88,6 +89,11 @@ service cloud.firestore {
     match /settings/{document} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    match /media/{mediaId} {
+      allow get, list: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
   }
 }

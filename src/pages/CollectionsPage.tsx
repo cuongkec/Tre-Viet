@@ -11,6 +11,7 @@ import Footer from "../components/Footer";
 import QuickViewModal from "../components/QuickViewModal";
 import ProductCard from "../components/ProductCard";
 import ProductSkeleton from "../components/ProductSkeleton";
+import SEO from "../components/SEO";
 
 export default function CollectionsPage() {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ export default function CollectionsPage() {
   const { addToCart } = useCart();
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [categories, setCategories] = useState<string[]>(["Tất cả", "Seating", "Lighting", "Decor", "Furniture"]);
+  const [categories, setCategories] = useState<string[]>(["Tất cả"]);
   const [materials, setMaterials] = useState<string[]>(["Tất cả", "Natural", "Handcrafted", "Processed"]);
   const [activeCategory, setActiveCategory] = useState("Tất cả");
   const [activePriceRange, setActivePriceRange] = useState("Tất cả");
@@ -30,8 +31,8 @@ export default function CollectionsPage() {
     const q = params.get("q");
     if (q) {
       setSearchQuery(q);
-      // Optional: clean up URL after reading so it doesn't stay indefinitely if they clear the search,
-      // but usually it's fine to keep it or let user clear via X.
+    } else {
+      setSearchQuery("");
     }
   }, [location.search]);
 
@@ -182,7 +183,7 @@ export default function CollectionsPage() {
         const catSnap = await getDocs(qCat);
         if (isMounted) {
           const dbCats = catSnap.docs.map(doc => doc.data().name);
-          setCategories(Array.from(new Set(["Tất cả", "Seating", "Lighting", "Decor", "Furniture", ...dbCats])));
+          setCategories(Array.from(new Set(["Tất cả", ...dbCats])));
         }
       } catch (error) {
         console.error("Lỗi khi tải danh mục từ Firebase:", error);
@@ -261,6 +262,10 @@ export default function CollectionsPage() {
 
   return (
     <div className="bg-editorial-bg min-h-screen">
+      <SEO 
+        title="Bộ Sưu Tập - KC Cook" 
+        description="Khám phá bộ sưu tập nội thất mây tre đan đương đại của KC Cook. Sự kết hợp hoàn hảo giữa thẩm mỹ và tính bền vững." 
+      />
       <Navbar />
       
       <main className="pt-40 pb-20 px-6 md:px-[60px]">

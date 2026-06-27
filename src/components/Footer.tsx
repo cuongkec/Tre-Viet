@@ -134,7 +134,7 @@ export default function Footer() {
                     </a>
                   </li>
                   <li>
-                    <a href="#" className="group flex items-center">
+                    <a href="https://www.facebook.com/trevua" className="group flex items-center">
                       <motion.div whileHover={{ x: 8 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="flex items-center gap-2 text-editorial-text/80 group-hover:text-editorial-accent">
                         <Facebook size={14} /> <span>Facebook</span>
                       </motion.div>
@@ -158,7 +158,7 @@ export default function Footer() {
           <div className="text-[10px] uppercase tracking-[1px] text-editorial-text/50 flex flex-wrap gap-x-2 gap-y-4 max-w-4xl">
             <span>COPYRIGHT © {(new Date()).getFullYear()} CUONGEMINI. ALL RIGHTS RESERVED</span>
             <span className="hidden md:inline">|</span>
-            <a href="#" className="hover:text-editorial-accent transition-colors">PRIVACY POLICY</a>
+            <a href="https://cuongemini.com" className="hover:text-editorial-accent transition-colors">PRIVACY POLICY</a>
             <span className="hidden md:inline">|</span>
             <span>THIS SITE IS PROTECTED BY RECAPTCHA AND THE GOOGLE PRIVACY POLICY AND TERMS OF SERVICE APPLY.</span>
             <span className="hidden md:inline">|</span>

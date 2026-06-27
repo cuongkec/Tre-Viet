@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, Search, ShoppingBag, X, Sprout } from "lucide-react";
+import { Menu, Search, ShoppingBag, X, Sprout, Globe } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useCart } from "../context/CartContext";
+import { useLanguage } from "../context/LanguageContext";
 
 export default function Navbar() {
   const { totalItems, setIsCartOpen } = useCart();
+  const { language, setLanguage, t } = useLanguage();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState("");
@@ -19,12 +21,21 @@ export default function Navbar() {
   const navigate = useNavigate();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+    if (val.trim() && location.pathname === '/collections') {
+      navigate(`/collections?q=${encodeURIComponent(val.trim())}`, { replace: true });
+    } else if (!val.trim() && location.pathname === '/collections') {
+      navigate(`/collections`, { replace: true });
+    }
+  };
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/collections?q=${encodeURIComponent(searchQuery.trim())}`);
-      setIsSearchOpen(false);
-      setSearchQuery("");
+      // Don't close search open state immediately to allow typing
     }
   };
 
@@ -60,9 +71,9 @@ export default function Navbar() {
   }, [location]);
 
   const navLinks = [
-    { name: "Bộ Sưu Tập", path: "/collections" },
-    { name: "Về Chúng Tôi", path: "/#about" },
-    { name: "Quy Trình", path: "/#process" },
+    { name: t('nav.collections'), path: "/collections" },
+    { name: t('nav.about'), path: "/#about" },
+    { name: t('nav.process'), path: "/#process" },
   ];
 
   return (
@@ -115,10 +126,18 @@ export default function Navbar() {
           ))}
           
           <a href="/#contact" className="ml-4 px-6 py-2 bg-editorial-text text-white rounded-full text-[10px] uppercase tracking-[2px] font-bold hover:bg-editorial-accent transition-all duration-300 hover:scale-105 active:scale-95 shadow-lg shadow-black/5 hover:shadow-editorial-accent/20">
-            Liên Hệ
+            {t('nav.contact')}
           </a>
           
           <div className="flex items-center gap-6 ml-8">
+            <button 
+              onClick={() => setLanguage(language === 'vi' ? 'en' : 'vi')}
+              className="flex items-center gap-1 hover:text-editorial-accent transition-colors duration-300 text-[10px] uppercase tracking-widest font-bold"
+              aria-label="Toggle Language"
+            >
+              <Globe size={16} strokeWidth={1.5} />
+              <span>{language}</span>
+            </button>
             <div className="relative flex items-center">
               <AnimatePresence>
                 {isSearchOpen && (
@@ -134,8 +153,8 @@ export default function Navbar() {
                       ref={searchInputRef}
                       type="text" 
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Tìm kiếm..." 
+                      onChange={handleSearchChange}
+                      placeholder={t('search.placeholder')} 
                       className="w-full bg-transparent outline-none text-[11px] uppercase tracking-[1px] font-medium placeholder:font-light"
                     />
                     <button type="button" onClick={() => setIsSearchOpen(false)} className="ml-2 opacity-50 hover:opacity-100">
@@ -172,6 +191,12 @@ export default function Navbar() {
 
         {/* Mobile Buttons */}
         <div className="flex md:hidden items-center gap-4">
+          <button 
+            onClick={() => setLanguage(language === 'vi' ? 'en' : 'vi')}
+            className="flex items-center gap-1 hover:text-editorial-accent transition-colors duration-300 text-[10px] uppercase tracking-widest font-bold"
+          >
+            <span>{language}</span>
+          </button>
           <button 
             onClick={() => setIsCartOpen(true)}
             className="relative"

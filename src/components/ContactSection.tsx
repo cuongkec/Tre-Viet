@@ -26,14 +26,40 @@ export default function ContactSection() {
     }, 10000);
 
     try {
+      // 1. Save to Firestore
       await addDoc(collection(db, "inquiries"), {
         ...formData,
         createdAt: serverTimestamp()
       });
-      clearTimeout(timeoutId);
-      setStatus('success');
-      setFormData({ name: "", email: "", subject: "consultancy", message: "" });
-      setTimeout(() => setStatus('idle'), 5000);
+
+      // 2. Send email via formsubmit.co
+      const response = await fetch("https://formsubmit.co/ajax/cuongemini@gmail.com", {
+        method: "POST",
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          _subject: "Liên hệ mới từ Website CUONGEMINI",
+          Họ_và_tên: formData.name,
+          Email: formData.email,
+          Mục_đích_liên_hệ: formData.subject === 'consultancy' ? 'Tư vấn thiết kế' : formData.subject === 'retail' ? 'Mua hàng cá nhân' : 'Hợp tác kinh doanh',
+          Tin_nhắn: formData.message,
+        })
+      });
+      
+      const result = await response.json();
+      console.log("FormSubmit result:", result);
+
+      if (response.ok) {
+        clearTimeout(timeoutId);
+        setStatus('success');
+        setFormData({ name: "", email: "", subject: "consultancy", message: "" });
+        setTimeout(() => setStatus('idle'), 5000);
+      } else {
+        throw new Error(result.message || "Failed to send email");
+      }
+
     } catch (error) {
       clearTimeout(timeoutId);
       console.error("Error submitting inquiry details:", error);
@@ -58,7 +84,7 @@ export default function ContactSection() {
               Bắt Đầu Một <br />
               <span className="italic-serif text-editorial-accent">Dự Án Mới.</span>
             </h2>
-            <p className="text-[#666] leading-[1.6] font-light text-[18px] max-w-md mb-16">
+            <p className="text-[#666] leading-[1.6] font-light text-[18px] max-w-md mb-16 font-['Courier_New']">
               Chúng tôi luôn sẵn lòng lắng nghe những ý tưởng về không gian của bạn. Hãy liên hệ để cùng nhau kiến tạo nên những giá trị bền vững.
             </p>
 
@@ -129,6 +155,7 @@ export default function ContactSection() {
                       <input 
                         type="text" 
                         id="name" 
+                        name="name"
                         required 
                         value={formData.name}
                         onChange={e => setFormData({ ...formData, name: e.target.value })}
@@ -141,6 +168,7 @@ export default function ContactSection() {
                       <input 
                         type="email" 
                         id="email" 
+                        name="email"
                         required 
                         value={formData.email}
                         onChange={e => setFormData({ ...formData, email: e.target.value })}
@@ -154,9 +182,10 @@ export default function ContactSection() {
                   <div className="relative">
                     <select 
                       id="subject" 
+                      name="subject"
                       value={formData.subject}
                       onChange={e => setFormData({ ...formData, subject: e.target.value })}
-                      className="w-full bg-transparent border-b border-editorial-line py-2 focus:border-editorial-accent outline-none text-sm transition-colors peer appearance-none cursor-pointer"
+                      className="w-full bg-transparent border-b border-editorial-line py-2 focus:border-editorial-accent outline-none text-sm transition-colors peer appearance-none cursor-pointer font-[Verdana]"
                     >
                       <option value="consultancy">Tư vấn thiết kế</option>
                       <option value="retail">Mua hàng cá nhân</option>
@@ -168,6 +197,7 @@ export default function ContactSection() {
                   <div className="relative">
                     <textarea 
                       id="message" 
+                      name="message"
                       rows={4} 
                       required 
                       value={formData.message}

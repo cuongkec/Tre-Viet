@@ -6,8 +6,10 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { CartProvider } from "./context/CartContext";
 import { ToastProvider } from "./context/ToastContext";
+import { LanguageProvider } from "./context/LanguageContext";
 import CartSidebar from "./components/CartSidebar";
 import ChatWidget from "./components/ChatWidget";
+import BackToTop from "./components/BackToTop";
 import ScrollProgress from "./components/ScrollProgress";
 import HomePage from "./pages/HomePage";
 import CollectionsPage from "./pages/CollectionsPage";
@@ -18,18 +20,21 @@ export default function App() {
   return (
     <Router>
       <ScrollProgress />
-      <ToastProvider>
-        <CartProvider>
-          <CartSidebar />
-          <ChatWidget />
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/collections" element={<CollectionsPage />} />
-            <Route path="/product/:productId" element={<ProductDetailPage />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-          </Routes>
-        </CartProvider>
-      </ToastProvider>
+      <LanguageProvider>
+        <ToastProvider>
+          <CartProvider>
+            <CartSidebar />
+            <ChatWidget />
+            <BackToTop />
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/collections" element={<CollectionsPage />} />
+              <Route path="/product/:productId" element={<ProductDetailPage />} />
+              <Route path="/admin" element={<AdminDashboard />} />
+            </Routes>
+          </CartProvider>
+        </ToastProvider>
+      </LanguageProvider>
     </Router>
   );
 }

@@ -52,7 +52,7 @@ export default function Hero() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 1, delay: 0.5 }}
-            className="text-[16px] leading-[1.6] text-[#666] mb-[40px] max-w-[400px]"
+            className="text-[16px] leading-[1.6] text-[#666] mb-[40px] max-w-[400px] font-['Courier_New']"
           >
             Sự kết hợp tinh tế giữa kỹ thuật đan lát truyền thống và tư duy thiết kế hiện đại, 
             mang hơi thở của thiên nhiên Việt vào không gian sống thượng lưu.

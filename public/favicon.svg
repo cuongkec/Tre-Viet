@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="leafGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4CAF50" />
+      <stop offset="100%" stop-color="#8BC34A" />
+    </linearGradient>
+  </defs>
+  <!-- Three bamboo leaves on the left -->
+  <path d="M10,80 C15,40 30,20 45,10 C40,40 25,60 10,80 Z" fill="url(#leafGrad)" />
+  <path d="M15,85 C25,50 45,30 65,25 C50,55 30,70 15,85 Z" fill="url(#leafGrad)" />
+  <path d="M5,70 C10,45 20,30 35,25 C30,45 20,55 5,70 Z" fill="url(#leafGrad)" />
+  
+  <!-- Letters KC -->
+  <text x="50" y="70" font-family="Arial, sans-serif" font-weight="900" font-size="40" fill="#4CAF50">KC</text>
+</svg>

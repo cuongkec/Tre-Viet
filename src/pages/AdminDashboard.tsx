@@ -4,7 +4,8 @@ import {
   Plus, Edit2, Trash2, Save, X, 
   LogIn, LogOut, Package, Image as ImageIcon, 
   Tag, Briefcase, DollarSign, AlertCircle, CheckCircle,
-  Upload, Loader, Settings, Grid, FileText, RefreshCw
+  Upload, Loader, Settings, Grid, FileText, RefreshCw,
+  ChevronLeft, ChevronRight, GripVertical
 } from "lucide-react";
 import { 
   collection, query, onSnapshot, 
@@ -33,12 +34,21 @@ interface Product {
   variations?: { name: string; options: string[] }[];
 }
 
+interface MediaItem {
+  id: string;
+  url: string;
+  name: string;
+  category: string;
+  createdAt?: any;
+}
+
 export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -47,6 +57,11 @@ export default function AdminDashboard() {
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'date'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortMediaBy, setSortMediaBy] = useState<'name' | 'category' | 'date'>('date');
+  const [sortMediaOrder, setSortMediaOrder] = useState<'asc' | 'desc'>('desc');
+  const [isAddingMedia, setIsAddingMedia] = useState(false);
+  const [editingMediaId, setEditingMediaId] = useState<string | null>(null);
+  const [mediaFormData, setMediaFormData] = useState<{ url: string; name: string; category: string }>({ url: '', name: '', category: 'Chưa phân loại' });
   const [newMatValue, setNewMatValue] = useState("Handcrafted");
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'products' | 'metadata' | 'inquiries' | 'media' | 'homepage'>('products');
@@ -160,14 +175,36 @@ export default function AdminDashboard() {
     variations: [] as { name: string; options: string[] }[]
   });
 
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [uploadingCount, setUploadingCount] = useState<number>(0);
+
   const standardCategories = ["Bàn Ghế", "Đèn Trang Trí", "Phụ Kiện", "Nội Thất"];
   const standardMaterials = ["Natural", "Handcrafted", "Processed"];
 
   const mediaGallery = useMemo(() => {
-    // Collect unique images from products
-    const images = products.map(p => p.image).filter((img, index, self) => self.indexOf(img) === index);
-    return images;
-  }, [products]);
+    // Collect unique images from products and homepage settings
+    const allImages = new Set<string>();
+    
+    products.forEach(p => {
+      if (p.image) allImages.add(p.image);
+      if (p.images && Array.isArray(p.images)) {
+        p.images.forEach((img: string) => allImages.add(img));
+      }
+    });
+    
+    // Add homepage settings images
+    if (homepageSettings.logoImage) allImages.add(homepageSettings.logoImage);
+    if (homepageSettings.heroImage) allImages.add(homepageSettings.heroImage);
+    if (homepageSettings.storyImage) allImages.add(homepageSettings.storyImage);
+    Object.values(homepageSettings.collections).forEach(url => {
+      if (url) allImages.add(url);
+    });
+    homepageSettings.archiveImages.forEach(url => {
+      if (url) allImages.add(url);
+    });
+
+    return Array.from(allImages);
+  }, [products, homepageSettings]);
 
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => {
@@ -184,6 +221,22 @@ export default function AdminDashboard() {
       return sortOrder === 'asc' ? comparison : -comparison;
     });
   }, [products, sortBy, sortOrder]);
+
+  const sortedMedia = useMemo(() => {
+    return [...mediaItems].sort((a, b) => {
+      let comparison = 0;
+      if (sortMediaBy === 'name') {
+        comparison = a.name.localeCompare(b.name);
+      } else if (sortMediaBy === 'category') {
+        comparison = a.category.localeCompare(b.category);
+      } else if (sortMediaBy === 'date') {
+        const dateA = a.createdAt?.seconds || 0;
+        const dateB = b.createdAt?.seconds || 0;
+        comparison = dateA - dateB;
+      }
+      return sortMediaOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [mediaItems, sortMediaBy, sortMediaOrder]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -242,12 +295,19 @@ export default function AdminDashboard() {
       }
     });
 
+    const unsubMedia = onSnapshot(collection(db, "media"), (snap) => {
+      setMediaItems(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as MediaItem)));
+    }, (error) => {
+      console.error("Error listening to media:", error);
+    });
+
     return () => {
       unsubscribe();
       unsubCats();
       unsubMats();
       unsubInquiries();
       unsubHomepageSettings();
+      unsubMedia();
     };
   }, [isAdmin]);
 
@@ -447,6 +507,47 @@ export default function AdminDashboard() {
     setDeletingId(null);
   };
 
+  const handleSaveMedia = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mediaFormData.url.trim() || !mediaFormData.name.trim()) return;
+    try {
+      setUploading(true);
+      if (editingMediaId) {
+        await updateDoc(doc(db, "media", editingMediaId), {
+          url: mediaFormData.url.trim(),
+          name: mediaFormData.name.trim(),
+          category: mediaFormData.category,
+        });
+        setStatus({ type: 'success', msg: 'Đã cập nhật ảnh' });
+      } else {
+        await addDoc(collection(db, "media"), {
+          url: mediaFormData.url.trim(),
+          name: mediaFormData.name.trim(),
+          category: mediaFormData.category,
+          createdAt: serverTimestamp()
+        });
+        setStatus({ type: 'success', msg: 'Đã thêm ảnh vào thư viện' });
+      }
+      setIsAddingMedia(false);
+      setEditingMediaId(null);
+      setMediaFormData({ url: '', name: '', category: 'Chưa phân loại' });
+    } catch (error) {
+      setStatus({ type: 'error', msg: 'Không thể lưu media' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const executeDeleteMedia = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "media", id));
+      setStatus({ type: 'success', msg: "Đã xóa ảnh khỏi thư viện" });
+      setConfirmDeletingMeta(null);
+    } catch (error) {
+      setStatus({ type: 'error', msg: "Không thể xóa ảnh" });
+    }
+  };
+
   const startEdit = (product: Product) => {
     setEditingId(product.id);
     setFormData({
@@ -485,24 +586,77 @@ export default function AdminDashboard() {
     });
   };
 
-  const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
-    if (files.length > 0) {
-      setSelectedFiles(prev => [...prev, ...files]);
-      
-      files.forEach(file => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setPreviewUrls(prev => [...prev, reader.result as string]);
-        };
-        reader.readAsDataURL(file);
-      });
+    if (files.length === 0) return;
+    
+    setUploading(true);
+    setUploadingCount(files.length);
+    setStatus(null);
+    try {
+      const urls: string[] = [];
+      for (const file of files) {
+        try {
+          const url = await uploadToCloudinary(file);
+          if (url) {
+            urls.push(url);
+            setFormData(prev => ({
+              ...prev,
+              image: prev.image ? prev.image : url,
+              images: [...(prev.images || []), url]
+            }));
+          }
+        } catch (uploadError: any) {
+          console.error("Upload error single file:", uploadError);
+          setStatus({ type: 'error', msg: `Tải ảnh lên thất bại: ${uploadError.message}` });
+        } finally {
+          setUploadingCount(prev => Math.max(0, prev - 1));
+        }
+      }
+      if (urls.length > 0) {
+        setStatus({ type: 'success', msg: `Đã tải lên thành công ${urls.length} ảnh` });
+      }
+    } catch (err: any) {
+      setStatus({ type: 'error', msg: err?.message || "Lỗi tải ảnh lên" });
+    } finally {
+      setUploading(false);
+      setUploadingCount(0);
     }
   };
 
   const removePreview = (index: number) => {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleReorderImage = (dragIndex: number, hoverIndex: number) => {
+    if (!formData.images || dragIndex === hoverIndex) return;
+    const items = [...formData.images];
+    const draggedItem = items[dragIndex];
+    items.splice(dragIndex, 1);
+    items.splice(hoverIndex, 0, draggedItem);
+    setFormData(prev => ({
+      ...prev,
+      images: items
+    }));
+    setDraggingIndex(hoverIndex);
+  };
+
+  const handleMoveImage = (index: number, direction: 'left' | 'right') => {
+    if (!formData.images) return;
+    const items = [...formData.images];
+    const targetIndex = direction === 'left' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= items.length) return;
+    
+    // Swap
+    const temp = items[index];
+    items[index] = items[targetIndex];
+    items[targetIndex] = temp;
+    
+    setFormData(prev => ({
+      ...prev,
+      images: items
+    }));
   };
 
   const removeGalleryImage = (index: number) => {
@@ -692,31 +846,93 @@ export default function AdminDashboard() {
                         
                         <div className="grid grid-cols-1 gap-4">
                           {/* Selected Previews & Existing Gallery */}
-                          {(previewUrls.length > 0 || (formData.images && formData.images.length > 0)) && (
+                          {((formData.images && formData.images.length > 0) || uploadingCount > 0) && (
                             <div className="grid grid-cols-4 gap-2 mb-2 p-2 bg-white border border-editorial-line/10">
                               {/* Existing */}
                               {formData.images?.map((img, idx) => (
-                                <div key={`ex-${idx}`} className="relative aspect-square border overflow-hidden group">
-                                  <img src={img} alt="" className="w-full h-full object-cover" />
-                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                    {img !== formData.image && (
-                                      <button type="button" onClick={() => setFormData({...formData, image: img})} className="bg-white text-editorial-text text-[9px] px-2 py-1 font-bold uppercase transition-transform hover:scale-105" title="Đặt làm ảnh chính">
-                                        Main
-                                      </button>
-                                    )}
-                                    <button type="button" onClick={() => removeGalleryImage(idx)} className="bg-red-500 text-white p-1 hover:bg-red-600 transition-colors" title="Xóa">
-                                      <X size={14} />
-                                    </button>
+                                <div 
+                                  key={`ex-${idx}`} 
+                                  draggable
+                                  onDragStart={(e) => {
+                                    setDraggingIndex(idx);
+                                  }}
+                                  onDragOver={(e) => e.preventDefault()}
+                                  onDragEnter={(e) => {
+                                    if (draggingIndex !== null && draggingIndex !== idx) {
+                                      handleReorderImage(draggingIndex, idx);
+                                    }
+                                  }}
+                                  onDragEnd={() => setDraggingIndex(null)}
+                                  className={`relative aspect-square border overflow-hidden group cursor-grab active:cursor-grabbing transition-all ${
+                                    draggingIndex === idx ? 'opacity-40 border-editorial-accent scale-95' : 'border-editorial-line/10 hover:border-editorial-accent/60'
+                                  }`}
+                                >
+                                  <img src={img} alt="" className="w-full h-full object-cover pointer-events-none" />
+                                  
+                                  {/* Drag Handle Overlay Icon on Hover */}
+                                  <div className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-[2px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                    <GripVertical size={12} />
                                   </div>
-                                  {img === formData.image && <div className="absolute top-0 left-0 bg-editorial-accent text-white text-[8px] px-1 uppercase z-10 shadow-sm pointer-events-none">Main</div>}
+
+                                  {/* Quick Arrow Controls for Touchscreens / Click */}
+                                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-between gap-1 z-10">
+                                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()} onDragStart={(e) => e.preventDefault()}>
+                                      {idx > 0 && (
+                                        <button 
+                                          type="button" 
+                                          onClick={() => handleMoveImage(idx, 'left')}
+                                          className="p-1 bg-white/20 hover:bg-white text-white hover:text-black transition-colors rounded-[2px] cursor-pointer"
+                                          title="Di chuyển sang trái"
+                                        >
+                                          <ChevronLeft size={12} />
+                                        </button>
+                                      )}
+                                      {idx < (formData.images.length - 1) && (
+                                        <button 
+                                          type="button" 
+                                          onClick={() => handleMoveImage(idx, 'right')}
+                                          className="p-1 bg-white/20 hover:bg-white text-white hover:text-black transition-colors rounded-[2px] cursor-pointer"
+                                          title="Di chuyển sang phải"
+                                        >
+                                          <ChevronRight size={12} />
+                                        </button>
+                                      )}
+                                    </div>
+                                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()} onDragStart={(e) => e.preventDefault()}>
+                                      {img !== formData.image ? (
+                                        <button 
+                                          type="button" 
+                                          onClick={() => setFormData({...formData, image: img})} 
+                                          className="bg-white hover:bg-editorial-accent hover:text-white text-editorial-text text-[8px] px-1.5 py-0.5 font-bold uppercase transition-colors" 
+                                          title="Đặt làm ảnh chính"
+                                        >
+                                          Main
+                                        </button>
+                                      ) : null}
+                                      <button 
+                                        type="button" 
+                                        onClick={() => removeGalleryImage(idx)} 
+                                        className="bg-red-500 hover:bg-red-600 text-white p-1 rounded-[2px] transition-colors" 
+                                        title="Xóa"
+                                      >
+                                        <X size={10} />
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {img === formData.image && (
+                                    <div className="absolute top-0 left-0 bg-editorial-accent text-white text-[8px] px-1.5 py-0.5 uppercase z-10 shadow-sm pointer-events-none font-bold">
+                                      Main
+                                    </div>
+                                  )}
                                 </div>
                               ))}
-                              {/* New Previews */}
-                              {previewUrls.map((url, idx) => (
-                                <div key={`new-${idx}`} className="relative aspect-square border border-dashed border-editorial-accent/40 overflow-hidden group">
-                                  <img src={url} alt="" className="w-full h-full object-cover" />
-                                  <button type="button" onClick={() => removePreview(idx)} className="absolute inset-0 bg-editorial-text/80 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center"><X size={14} /></button>
-                                  <div className="absolute top-0 right-0 bg-editorial-accent text-white text-[8px] px-1 uppercase">New</div>
+                              
+                              {/* Uploading Progress Placeholders */}
+                              {uploadingCount > 0 && Array.from({ length: uploadingCount }).map((_, uidx) => (
+                                <div key={`uploading-${uidx}`} className="relative aspect-square border border-dashed border-editorial-accent/50 bg-editorial-muted/5 flex flex-col items-center justify-center animate-pulse font-sans">
+                                  <Loader className="animate-spin text-editorial-accent mb-1" size={16} />
+                                  <span className="text-[8px] uppercase tracking-wider opacity-60">Đang tải...</span>
                                 </div>
                               ))}
                             </div>
@@ -1194,27 +1410,206 @@ export default function AdminDashboard() {
                 </div>
               </div>
             ) : activeTab === 'media' ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                {mediaGallery.map((img, i) => (
-                  <div key={i} className="aspect-[3/4] bg-editorial-muted/10 relative group border border-editorial-line/5 overflow-hidden">
-                    <img src={img} alt="" className="w-full h-full object-cover grayscale brightness-95 group-hover:grayscale-0 group-hover:scale-105 transition-all" referrerPolicy="no-referrer" />
-                    <div className="absolute inset-0 bg-editorial-text/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => {
-                          setFormData({ ...formData, image: img });
-                          setStatus({ type: 'success', msg: "Đã chọn ảnh từ thư viện" });
-                          setIsAdding(true);
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                        className="bg-white text-editorial-text p-2 rounded-full shadow-lg hover:text-editorial-accent"
-                        title="Dùng cho sản phẩm này"
-                      >
-                        <Plus size={16} />
-                      </button>
+              <>
+                <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-12">
+                  <div className="flex items-center gap-6">
+                    <span className="text-[10px] uppercase tracking-widest opacity-40 font-bold">Sắp xếp theo:</span>
+                    <div className="flex bg-white border border-editorial-line/10">
+                      {(['name', 'category', 'date'] as const).map(type => (
+                        <button
+                          key={type}
+                          onClick={() => {
+                            if (sortMediaBy === type) setSortMediaOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+                            else { setSortMediaBy(type); setSortMediaOrder('desc'); }
+                          }}
+                          className={`px-4 py-2 text-[10px] uppercase tracking-widest font-bold transition-colors flex items-center gap-1
+                            ${sortMediaBy === type ? 'bg-editorial-text text-white' : 'hover:bg-editorial-muted/10'}
+                          `}
+                        >
+                          {type === 'name' ? 'Tên' : type === 'category' ? 'Danh mục' : 'Ngày thêm'}
+                          {sortMediaBy === type && (
+                            <span className="text-[10px]">{sortMediaOrder === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
+                  <button 
+                    onClick={() => { setIsAddingMedia(true); setEditingMediaId(null); setMediaFormData({ url: '', name: '', category: 'Chưa phân loại' }); }}
+                    className="w-full md:w-auto px-8 py-3 bg-editorial-text text-white text-[10px] uppercase tracking-widest font-bold hover:bg-editorial-accent transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus size={14} /> Thêm ảnh mới
+                  </button>
+                </div>
+
+                <div className="bg-white border border-editorial-line/10 overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[800px]">
+                    <thead>
+                      <tr className="border-b border-editorial-line/10 text-[10px] uppercase tracking-[2px] opacity-40 font-bold">
+                        <th className="p-6 w-24">Hình ảnh</th>
+                        <th className="p-6">Tên ảnh</th>
+                        <th className="p-6">Danh mục</th>
+                        <th className="p-6 w-32 text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedMedia.map((media) => (
+                        <tr key={media.id} className="border-b border-editorial-line/5 hover:bg-editorial-muted/5 transition-colors group">
+                          <td className="p-6">
+                            <div className="w-16 h-16 bg-editorial-muted/10 relative overflow-hidden group-hover:scale-105 transition-transform duration-500 cursor-pointer"
+                               onClick={() => {
+                                 setFormData(prev => ({ 
+                                   ...prev, 
+                                   image: media.url,
+                                   images: !prev.images?.includes(media.url) ? [...(prev.images || []), media.url] : prev.images
+                                 }));
+                                 setStatus({ type: 'success', msg: "Đã chọn ảnh từ thư viện" });
+                                 setIsAdding(true);
+                                 window.scrollTo({ top: 0, behavior: 'smooth' });
+                               }}
+                               title="Click để thêm vào sản phẩm đang chỉnh sửa"
+                            >
+                              <img src={media.url} alt={media.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            </div>
+                          </td>
+                          <td className="p-6">
+                            <h4 className="font-serif text-lg">{media.name}</h4>
+                          </td>
+                          <td className="p-6">
+                            <span className="text-[10px] uppercase tracking-widest border border-editorial-line/20 px-3 py-1 bg-white">{media.category}</span>
+                          </td>
+                          <td className="p-6">
+                            <div className="flex justify-end gap-2 pr-4">
+                              <button 
+                                onClick={() => {
+                                  setEditingMediaId(media.id);
+                                  setMediaFormData({ url: media.url, name: media.name, category: media.category });
+                                  setIsAddingMedia(true);
+                                }} 
+                                className="p-2 text-editorial-text hover:text-blue-600 transition-colors"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              {confirmDeletingMeta === media.id ? (
+                                <div className="flex items-center gap-1">
+                                  <button onClick={() => executeDeleteMedia(media.id)} className="px-3 py-1 bg-red-600 text-white text-[10px] uppercase tracking-widest font-bold">Xóa</button>
+                                  <button onClick={() => setConfirmDeletingMeta(null)} className="px-3 py-1 bg-gray-200 text-[#333] text-[10px] uppercase tracking-widest font-bold">Hủy</button>
+                                </div>
+                              ) : (
+                                <button onClick={() => setConfirmDeletingMeta(media.id)} className="p-2 text-red-300 hover:text-red-500 transition-colors">
+                                  <Trash2 size={16} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {sortedMedia.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="p-12 text-center text-sm font-serif italic text-editorial-text/40">
+                            Chưa có ảnh nào trong thư viện.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <AnimatePresence>
+                  {isAddingMedia && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-editorial-bg/80 backdrop-blur-sm">
+                      <motion.div 
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                        className="bg-white border border-editorial-line/10 shadow-2xl p-8 max-w-lg w-full"
+                      >
+                        <div className="flex justify-between items-center mb-6">
+                          <h3 className="text-xl font-serif">{editingMediaId ? "Cập Nhật Ảnh" : "Thêm Ảnh Mới"}</h3>
+                          <button onClick={() => setIsAddingMedia(false)} className="text-editorial-text/50 hover:text-editorial-text group"><X size={20} className="group-hover:rotate-90 transition-transform" /></button>
+                        </div>
+                        <form onSubmit={handleSaveMedia} className="space-y-6">
+                          <div className="space-y-2">
+                            <label className="text-[10px] uppercase tracking-[2px] font-bold opacity-40 block">Tên ảnh</label>
+                            <input 
+                              required
+                              value={mediaFormData.name}
+                              onChange={e => setMediaFormData({ ...mediaFormData, name: e.target.value })}
+                              className="w-full bg-transparent border-b border-editorial-line py-2 focus:border-editorial-accent outline-none text-sm transition-colors"
+                              placeholder="Ví dụ: Không gian phòng khách"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] uppercase tracking-[2px] font-bold opacity-40 block">Tải ảnh lên</label>
+                            {mediaFormData.url ? (
+                              <div className="relative group">
+                                <img src={mediaFormData.url} alt="Preview" className="w-full max-h-[200px] object-contain border border-editorial-line/10 bg-editorial-muted/5" />
+                                <button 
+                                  type="button"
+                                  disabled={uploading}
+                                  onClick={() => setMediaFormData({ ...mediaFormData, url: '' })}
+                                  className="absolute top-2 right-2 bg-white/90 text-red-500 p-2 shadow hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ) : (
+                              <label className="flex flex-col flex-1 items-center justify-center p-8 border border-dashed border-editorial-line/20 bg-editorial-muted/5 hover:bg-editorial-muted/10 transition-colors cursor-pointer group rounded-sm text-center">
+                                <Upload size={24} className="text-editorial-text/40 mb-3 group-hover:-translate-y-1 group-hover:text-editorial-accent transition-all" />
+                                <span className="text-[10px] uppercase tracking-[2px] text-editorial-text/60 font-bold">Bấm để tải ảnh lên</span>
+                                {uploading && <span className="text-xs text-editorial-accent italic mt-2">Đang tải lên...</span>}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      setUploading(true);
+                                      try {
+                                        const url = await uploadToCloudinary(file);
+                                        if (url) {
+                                          setMediaFormData({ ...mediaFormData, url: url });
+                                          setStatus({ type: "success", msg: "Tải ảnh lên thành công. Vui lòng nhập thông tin và bấm Lưu ảnh." });
+                                        }
+                                      } catch (error) {
+                                        setStatus({ type: "error", msg: "Lỗi khi tải ảnh lên Cloudinary" });
+                                      } finally {
+                                        setUploading(false);
+                                      }
+                                    }
+                                  }}
+                                  disabled={uploading}
+                                />
+                              </label>
+                            )}
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] uppercase tracking-[2px] font-bold opacity-40 block">Danh mục</label>
+                            <select 
+                              required
+                              value={mediaFormData.category}
+                              onChange={e => setMediaFormData({ ...mediaFormData, category: e.target.value })}
+                              className="w-full bg-transparent border-b border-editorial-line py-2 focus:border-editorial-accent outline-none text-sm transition-colors"
+                            >
+                              <option value="Chưa phân loại">Chưa phân loại</option>
+                              {Array.from(new Set([...standardCategories, ...categories.map(c => c.name)])).map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex justify-end gap-4 pt-4">
+                            <button type="button" onClick={() => setIsAddingMedia(false)} className="px-6 py-3 text-[10px] uppercase tracking-[2px] font-bold text-editorial-text/50 hover:text-editorial-text transition-colors">Hủy</button>
+                            <button type="submit" disabled={uploading} className="px-8 py-3 bg-editorial-text text-white text-[10px] uppercase tracking-[3px] font-bold hover:bg-editorial-accent transition-colors disabled:opacity-50 flex items-center gap-2">
+                              {uploading ? <><Loader size={14} className="animate-spin" /> Đang lưu...</> : <><Save size={14} /> Lưu ảnh</>}
+                            </button>
+                          </div>
+                        </form>
+                      </motion.div>
+                    </div>
+                  )}
+                </AnimatePresence>
+              </>
             ) : activeTab === 'inquiries' ? (
               <div className="space-y-6">
                 {inquiries.length === 0 ? (
@@ -1451,13 +1846,13 @@ export default function AdminDashboard() {
                             type="file"
                             accept="image/*"
                             onChange={(e) => handleImageSelectForCrop(e, 4/5, (url) => {
-                              setHomepageSettings({
-                                ...homepageSettings,
+                              setHomepageSettings(prev => ({
+                                ...prev,
                                 collections: {
-                                  ...homepageSettings.collections,
+                                  ...prev.collections,
                                   [key]: url
                                 }
-                              });
+                              }));
                             })}
                             className="hidden"
                           />

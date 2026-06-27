@@ -21,10 +21,10 @@ export default function AboutSection() {
         
         <div className="lg:col-span-5 relative">
           <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.98 }}
+            initial={{ opacity: 0, y: 70, scale: 0.95 }}
             whileInView={{ opacity: 1, y: 0, scale: 1 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 1.2, ease: [0.25, 1, 0.5, 1] }}
           >
             <img
               src={storyImage}
@@ -59,10 +59,10 @@ export default function AboutSection() {
         <div className="lg:col-span-6">
           <div className="flex flex-col">
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 45 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              viewport={{ once: true, amount: 0.2 }}
+              transition={{ duration: 1.2, ease: [0.25, 1, 0.5, 1] }}
             >
               <span className="text-editorial-accent text-[12px] uppercase tracking-[2px] font-semibold mb-6 block">Kế thừa & Sáng tạo</span>
               <h2 className="text-4xl md:text-5xl font-serif leading-tight mb-8">
@@ -72,27 +72,27 @@ export default function AboutSection() {
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, y: 25 }}
+              initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ delay: 0.15, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              viewport={{ once: true, amount: 0.2 }}
+              transition={{ delay: 0.15, duration: 1.2, ease: [0.25, 1, 0.5, 1] }}
               className="space-y-6 text-[#666] leading-[1.6] font-light text-[16px]"
             >
-              <p>
+              <p className="font-['Courier_New']">
                 Tre không chỉ là một loài cây, nó là biểu tượng của sự bền bỉ, dẻo dai và thanh cao trong văn hóa Việt. 
                 Tại KC Cook, chúng tôi tôn vinh giá trị văn hóa này bằng cách thổi hồn vào từng thanh tre, biến chúng thành những tác phẩm nghệ thuật có giá trị sử dụng cao.
               </p>
-              <p>
+              <p className="font-['Courier_New']">
                 Quy trình xử lý nghiêm ngặt kết hợp giữa kỹ thuật hun khói truyền thống và công nghệ hiện đại giúp sản phẩm 
                 đạt độ bền vượt trội, chống mối mọt nhưng vẫn giữ trọn màu sắc tự nhiên và mùi thơm dịu nhẹ của tre già.
               </p>
             </motion.div>
             
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ delay: 0.3, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              viewport={{ once: true, amount: 0.2 }}
+              transition={{ delay: 0.3, duration: 1.2, ease: [0.25, 1, 0.5, 1] }}
               className="mt-12 grid grid-cols-2 gap-8 border-t border-editorial-line pt-10"
             >
               <div>

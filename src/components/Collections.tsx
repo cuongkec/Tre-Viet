@@ -13,7 +13,7 @@ const defaultCollections = [
     link: "/collections"
   },
   {
-    title: "Đèn Trang Trí Thủ Công",
+    title: "Đèn Trang Trí",
     id: "lighting",
     category: "Lighting",
     image: "https://images.unsplash.com/photo-1513519247388-19345ed5d467?auto=format&fit=crop&w=1000&q=80",
@@ -69,9 +69,9 @@ export default function Collections() {
         </Link>
       </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[20px]">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-[20px]">
         {isLoading 
-          ? Array.from({ length: 4 }).map((_, index) => (
+          ? Array.from({ length: 3 }).map((_, index) => (
               <div key={index} className="flex flex-col gap-4">
                 <div className="aspect-[4/5] bg-editorial-muted/20 animate-pulse rounded-sm" />
                 <div className="h-5 bg-editorial-muted/20 animate-pulse rounded w-2/3" />
@@ -81,10 +81,10 @@ export default function Collections() {
           : collections.map((item, index) => (
           <motion.div
             key={index}
-            initial={{ opacity: 0, y: 45 }}
+            initial={{ opacity: 0, y: 60 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-50px" }}
-            transition={{ delay: index * 0.15, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ delay: index * 0.2, duration: 1.2, ease: [0.25, 1, 0.5, 1] }}
             className="group cursor-pointer editorial-card"
           >
             <div className="overflow-hidden mb-6 aspect-[4/5] bg-editorial-muted/20 transition-all duration-500 hover:shadow-2xl hover:-translate-y-2">

@@ -11,6 +11,7 @@ import { useCart } from "../context/CartContext";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import ProductCard from "../components/ProductCard";
+import SEO from "../components/SEO";
 
 interface Product {
   id: string;
@@ -37,26 +38,6 @@ export default function ProductDetailPage() {
   const [activeImage, setActiveImage] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 0, y: 0 });
-
-  useEffect(() => {
-    if (product) {
-      document.title = `${product.name} | KC Cook`;
-      
-      let metaDescription = document.querySelector('meta[name="description"]');
-      if (!metaDescription) {
-        metaDescription = document.createElement('meta');
-        metaDescription.setAttribute('name', 'description');
-        document.head.appendChild(metaDescription);
-      }
-      metaDescription.setAttribute('content', product.description || `Khám phá ${product.name} cao cấp từ KC Cook chuyên về nội thất mây tre đan.`);
-    } else if (!loading) {
-      document.title = 'Sản phẩm không tìm thấy | KC Cook';
-    }
-    
-    return () => {
-      document.title = 'KC Cook - Tinh hoa bếp Việt';
-    };
-  }, [product, loading]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isZoomed) return;
@@ -169,6 +150,10 @@ export default function ProductDetailPage() {
 
   return (
     <div className="bg-editorial-bg min-h-screen font-sans">
+      <SEO 
+        title={`${product.name} | KC Cook`} 
+        description={product.description || `Khám phá ${product.name} cao cấp từ KC Cook chuyên về nội thất mây tre đan.`} 
+      />
       <Navbar />
       
       <main className="pt-40 pb-32 px-[30px] md:px-[60px] max-w-7xl mx-auto">

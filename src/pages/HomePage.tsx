@@ -8,10 +8,16 @@ import ProcessSection from "../components/ProcessSection";
 import ContactSection from "../components/ContactSection";
 import GalleryCarousel from "../components/GalleryCarousel";
 import Footer from "../components/Footer";
+import SEO from "../components/SEO";
 
 export default function HomePage() {
   return (
     <main className="relative min-h-screen bg-editorial-bg">
+      <SEO 
+        title="KC Cook - Tinh hoa nội thất Việt" 
+        description="KC Cook mang đến không gian sống thượng lưu với các thiết kế nội thất mây tre đan cao cấp, kết hợp giữa nghệ thuật truyền thống và đương đại." 
+        keywords="KC Cook, nội thất tre, mây tre đan hiện đại, ghế mây, đèn tre, decor mây tre" 
+      />
       <Navbar />
       <Hero />
       <Collections />

@@ -10,7 +10,7 @@ export default function ChatWidget() {
     {
       name: "Zalo",
       icon: <MessageSquare size={20} />,
-      url: "https://zalo.me/",
+      url: "https://zalo.me/0914371531",
       color: "bg-blue-500",
       description: "Chat qua Zalo"
     },
@@ -24,9 +24,9 @@ export default function ChatWidget() {
     {
       name: "Hotline",
       icon: <Phone size={20} />,
-      url: "tel:+842438282212",
+      url: "tel:0914371531",
       color: "bg-editorial-accent",
-      description: "+84 (0) 24 3828 2212"
+      description: "0914371531"
     }
   ];
 

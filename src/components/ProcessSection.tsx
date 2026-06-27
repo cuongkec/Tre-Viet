@@ -41,7 +41,7 @@ export default function ProcessSection() {
                 Sự Kiên Nhẫn <br />
                 <span className="italic-serif text-editorial-accent">Trong Từng Bước Chân.</span>
               </h2>
-              <p className="text-[#666] leading-[1.6] font-light text-[16px] max-w-sm">
+              <p className="text-[#666] leading-[1.6] font-light text-[16px] max-w-sm font-['Courier_New']">
                 Để tạo ra một sản phẩm nội thất tre cao cấp, chúng tôi không cho phép mình vội vã. Đó là sự kết hợp giữa thời gian, thiên nhiên và lòng kiên nhẫn.
               </p>
             </motion.div>
@@ -52,10 +52,10 @@ export default function ProcessSection() {
               {steps.map((step, index) => (
                 <motion.div
                   key={index}
-                  initial={{ opacity: 0, y: 30 }}
+                  initial={{ opacity: 0, y: 60 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.1, duration: 0.8 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={{ delay: index * 0.15, duration: 1.2, ease: [0.25, 1, 0.5, 1] }}
                   className="editorial-card group"
                 >
                   <span className="text-5xl font-serif text-editorial-accent/20 block mb-6 group-hover:text-editorial-accent transition-colors duration-500">
@@ -64,7 +64,7 @@ export default function ProcessSection() {
                   <h3 className="text-xl font-serif mb-4 group-hover:italic transition-all">
                     {step.title}
                   </h3>
-                  <p className="text-[14px] text-[#8a8a8a] leading-relaxed font-light">
+                  <p className="text-[14px] text-[#8a8a8a] leading-relaxed font-light font-['Courier_New']">
                     {step.desc}
                   </p>
                 </motion.div>

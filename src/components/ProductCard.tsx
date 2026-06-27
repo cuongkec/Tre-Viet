@@ -75,13 +75,13 @@ export default function ProductCard({
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 30 }}
+      initial={{ opacity: 0, y: 60 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-50px" }}
+      viewport={{ once: true, amount: 0.2 }}
       transition={{ 
-        duration: 0.8, 
-        delay: (index % 4) * 0.1,
-        ease: [0.215, 0.61, 0.355, 1] 
+        duration: 1.2, 
+        delay: (index % 4) * 0.15,
+        ease: [0.25, 1, 0.5, 1] 
       }}
       className="group"
     >
